@@ -24,6 +24,8 @@
     "db:ping": "node scripts/db-ping.js",
     "db:reset": "node scripts/reset-warning.js",
     "dev:backend": "node --watch backend/src/server.js",
-    "dev:frontend": "npm --prefix frontend run dev"
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:local": "node scripts/dev-local.js"
   }
 }
+

@@ -63,10 +63,14 @@ npm run db:setup
 # 3. (Optional) Seed demo accounts:
 npm run db:seed
 
-# 4. Start backend (Terminal 1) and frontend (Terminal 2):
-npm run dev:backend
-npm run dev:frontend
+# 4. Start both servers together with ONE command (NO DOCKER):
+npm run dev:local
+
+# (Or run in two separate terminals if preferred:
+#  Terminal 1: npm run dev:backend
+#  Terminal 2: npm run dev:frontend)
 ```
+
 
 ##### 👉 If using Option C (Supabase Cloud PostgreSQL):
 1. Create a free project at [supabase.com](https://supabase.com).
@@ -88,10 +92,14 @@ npm run db:setup
 # 3. (Optional) Seed demo accounts:
 npm run db:seed
 
-# 4. Start backend and frontend:
-npm run dev:backend
-npm run dev:frontend
+# 4. Start both servers together with ONE command (NO DOCKER):
+npm run dev:local
+
+# (Or run in two separate terminals if preferred:
+#  Terminal 1: npm run dev:backend
+#  Terminal 2: npm run dev:frontend)
 ```
+
 
 > **Note for Supabase:** BloodBridge automatically detects `supabase.co` or `sslmode=require` and applies SSL encryption (`rejectUnauthorized: false`), ensuring seamless connectivity without connection errors.
 
