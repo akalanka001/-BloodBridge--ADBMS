@@ -4,6 +4,99 @@ This guide defines the standards, workflows, testing procedures, and folder stru
 
 ---
 
+## 0. Development Environment Options: Choose Your Setup
+
+BloodBridge supports three local development modes so every team member can contribute, regardless of whether they have Docker Desktop or use Windows/macOS/Linux:
+
+| Setup Mode | When to use | What you need installed |
+|---|---|---|
+| **Option A: Docker Compose** | Recommended if you already have Docker Desktop | Docker Desktop, Node.js 20 or 22 |
+| **Option B: Local PostgreSQL** | For teammates with pgAdmin or native PostgreSQL | PostgreSQL 16 (or 15), Node.js 20 or 22 |
+| **Option C: Supabase (Cloud DB)** | Easiest zero-install DB for laptops without Docker | Free Supabase account, Node.js 20 or 22 |
+
+---
+
+### 📦 Setup Instructions
+
+#### Step 1: Clone the repository & create your `.env` file
+```bash
+git clone https://github.com/akalanka001/-BloodBridge--ADBMS.git
+cd -BloodBridge--ADBMS
+git checkout dev
+cp .env.example .env
+```
+
+#### Step 2: Configure `.env` for your chosen option
+
+##### 👉 If using Option A (Docker Compose):
+In `.env`:
+```ini
+POSTGRES_USER=bloodbridge
+POSTGRES_DB=bloodbridge
+POSTGRES_PASSWORD=choose_a_strong_password_123
+JWT_SECRET=your_jwt_secret_at_least_32_characters_long
+```
+Start everything with:
+```bash
+npm run dev
+```
+
+##### 👉 If using Option B (Local PostgreSQL / pgAdmin on laptop):
+In `.env`:
+```ini
+PGHOST=localhost
+PGPORT=5432
+PGUSER=postgres
+PGPASSWORD=your_actual_local_postgres_password
+PGDATABASE=bloodbridge
+JWT_SECRET=your_jwt_secret_at_least_32_characters_long
+```
+Initialize the database and start the app:
+```bash
+# 1. Install dependencies
+npm --prefix backend install
+npm --prefix frontend install
+
+# 2. Automatically create database and run all migrations:
+npm run db:setup
+
+# 3. (Optional) Seed demo accounts:
+npm run db:seed
+
+# 4. Start backend (Terminal 1) and frontend (Terminal 2):
+npm run dev:backend
+npm run dev:frontend
+```
+
+##### 👉 If using Option C (Supabase Cloud PostgreSQL):
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Go to **Project Settings** ➔ **Database** ➔ **Connection String** ➔ **URI**.
+3. In `.env`, set:
+```ini
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+JWT_SECRET=your_jwt_secret_at_least_32_characters_long
+```
+Initialize the database and start the app:
+```bash
+# 1. Install dependencies
+npm --prefix backend install
+npm --prefix frontend install
+
+# 2. Run all migrations into your Supabase database:
+npm run db:setup
+
+# 3. (Optional) Seed demo accounts:
+npm run db:seed
+
+# 4. Start backend and frontend:
+npm run dev:backend
+npm run dev:frontend
+```
+
+> **Note for Supabase:** BloodBridge automatically detects `supabase.co` or `sslmode=require` and applies SSL encryption (`rejectUnauthorized: false`), ensuring seamless connectivity without connection errors.
+
+---
+
 ## 1. Git & Branching Conventions
 
 ### Integration Branch: `dev`

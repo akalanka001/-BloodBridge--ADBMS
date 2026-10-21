@@ -8,24 +8,90 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const migrationsDir = path.join(rootDir, 'database', 'migrations');
 
+// Auto-load .env file if available
+if (typeof process.loadEnvFile === 'function') {
+  const candidatePaths = [
+    path.resolve(rootDir, '.env'),
+    path.resolve(process.cwd(), '.env'),
+  ];
+  for (const envPath of candidatePaths) {
+    if (fs.existsSync(envPath)) {
+      try {
+        process.loadEnvFile(envPath);
+        break;
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+const connectionString = process.env.DATABASE_URL;
 const host = process.env.PGHOST || '127.0.0.1';
-const port = Number(process.env.PGPORT || (process.env.CI ? 5432 : 5433));
+const port = Number(process.env.PGPORT || (process.env.CI ? 5432 : (process.env.DOCKER ? 5432 : 5433)));
 const user = process.env.PGUSER || process.env.POSTGRES_USER || 'bloodbridge';
-const password = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || 'HAzi@1915';
+const password = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || '';
 const database = process.env.PGDATABASE || process.env.POSTGRES_DB || 'bloodbridge';
 
-console.log(`[migrate] Connecting to PostgreSQL at ${host}:${port}/${database}...`);
+const isSupabaseOrRemote = Boolean(
+  (connectionString && (connectionString.includes('supabase') || connectionString.includes('sslmode=require'))) ||
+  (host && (host.includes('supabase.co') || host.includes('supabase.com'))) ||
+  process.env.PGSSLMODE === 'require' ||
+  process.env.PGSSL === 'true'
+);
 
-const pool = new pg.Pool({
-  host,
-  port,
-  user,
-  password,
-  database,
-  connectionTimeoutMillis: 5000,
-});
+const poolConfig = connectionString
+  ? {
+      connectionString,
+      ssl: isSupabaseOrRemote ? { rejectUnauthorized: false } : undefined,
+      connectionTimeoutMillis: 10000,
+    }
+  : {
+      host,
+      port,
+      user,
+      password,
+      database,
+      ssl: isSupabaseOrRemote ? { rejectUnauthorized: false } : undefined,
+      connectionTimeoutMillis: 10000,
+    };
+
+console.log(
+  connectionString
+    ? `[migrate] Connecting to remote PostgreSQL via DATABASE_URL (SSL: ${isSupabaseOrRemote})...`
+    : `[migrate] Connecting to PostgreSQL at ${host}:${port}/${database} (user: ${user}, SSL: ${isSupabaseOrRemote})...`
+);
+
+let pool = new pg.Pool(poolConfig);
+
+async function ensureDatabaseExists() {
+  if (connectionString || isSupabaseOrRemote) return; // Cloud instances usually provide their target database
+  try {
+    const testClient = await pool.connect();
+    testClient.release();
+  } catch (err) {
+    if (err.code === '3D000') {
+      // Database does not exist; connect to 'postgres' maintenance DB and create it
+      console.log(`[migrate] Database "${database}" does not exist. Creating it on ${host}:${port}...`);
+      const maintenancePool = new pg.Pool({ ...poolConfig, database: 'postgres' });
+      const mClient = await maintenancePool.connect();
+      try {
+        await mClient.query(`CREATE DATABASE "${database}";`);
+        console.log(`[migrate] Database "${database}" successfully created.`);
+      } finally {
+        mClient.release();
+        await maintenancePool.end();
+      }
+      // Reinitialize target pool
+      pool = new pg.Pool(poolConfig);
+    } else {
+      throw err;
+    }
+  }
+}
 
 async function run() {
+  await ensureDatabaseExists();
   const client = await pool.connect();
   try {
     // 1. Ensure schema_migrations table exists
@@ -41,7 +107,7 @@ async function run() {
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public' AND table_name IN ('users', 'districts');
     `);
-    const tableNames = existingTables.map(r => r.table_name);
+    const tableNames = existingTables.map((r) => r.table_name);
 
     if (tableNames.includes('users')) {
       await client.query(`
@@ -69,12 +135,13 @@ async function run() {
     }
 
     // 3. Read migration files (ignoring non-migration verification scripts like 009)
-    const files = fs.readdirSync(migrationsDir)
-      .filter(f => f.endsWith('.sql') && !f.startsWith('009_'))
+    const files = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql') && !f.startsWith('009_'))
       .sort();
 
     const { rows: appliedRows } = await client.query('SELECT version FROM schema_migrations');
-    const appliedSet = new Set(appliedRows.map(r => r.version));
+    const appliedSet = new Set(appliedRows.map((r) => r.version));
 
     let appliedCount = 0;
     for (const file of files) {
@@ -112,6 +179,6 @@ async function run() {
 }
 
 run().catch((err) => {
-  console.error('[migrate] Migration runner failed:', err);
+  console.error('[migrate] Migration runner failed:', err.message);
   process.exit(1);
 });

@@ -141,6 +141,44 @@ This starts **PostgreSQL + the Express API + the React/Vite frontend** together.
 
 **Important:** Initialization SQL runs **only when `db_data` is empty**. Editing a migration file does not rerun it automatically when the database has already initialized. See Section 9.
 
+### Alternative: Running WITHOUT Docker (Local PostgreSQL or Supabase)
+
+If you do not have Docker installed, you can run BloodBridge directly on your laptop with **Local PostgreSQL** or **Supabase (Cloud PostgreSQL)**:
+
+1. Install dependencies:
+   ```bash
+   npm --prefix backend install
+   npm --prefix frontend install
+   ```
+2. Configure `.env`:
+   - **For Local PostgreSQL (pgAdmin / native Postgres):**
+     ```ini
+     PGHOST=localhost
+     PGPORT=5432
+     PGUSER=postgres
+     PGPASSWORD=your_postgres_password
+     PGDATABASE=bloodbridge
+     JWT_SECRET=your_jwt_secret_at_least_32_characters
+     ```
+   - **For Supabase Cloud PostgreSQL:**
+     ```ini
+     DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+     JWT_SECRET=your_jwt_secret_at_least_32_characters
+     ```
+3. Set up database tables, views, procedures & triggers automatically:
+   ```bash
+   npm run db:setup
+   ```
+4. (Optional) Seed fictional demo accounts & sample camp:
+   ```bash
+   npm run db:seed
+   ```
+5. Start backend and frontend services:
+   - **Terminal 1:** `npm run dev:backend` (API listens on http://localhost:4000)
+   - **Terminal 2:** `npm run dev:frontend` (React web opens on http://localhost:5173)
+
+See [`docs/TEAM_DEVELOPMENT_GUIDELINES.md`](docs/TEAM_DEVELOPMENT_GUIDELINES.md) for full instructions.
+
 ### Step 3 — Open the system
 
 | Service | URL / connection |

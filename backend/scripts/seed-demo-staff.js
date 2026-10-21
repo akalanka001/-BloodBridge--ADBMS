@@ -2,12 +2,9 @@
 import bcrypt from 'bcryptjs';
 import { pool, inTransaction } from '../src/db.js';
 
-const password = process.env.DEMO_PASSWORD;
-if (!password || password.length < 12) {
-  console.error('Set DEMO_PASSWORD to at least 12 characters, e.g. docker compose exec -e DEMO_PASSWORD=YOUR_DEMO_SECRET api node scripts/seed-demo-staff.js');
-  process.exit(1);
-}
-const hash = await bcrypt.hash(password,12);
+const password = process.env.DEMO_PASSWORD || 'DemoPassword123!';
+console.log(`[seed] Seeding demo staff with DEMO_PASSWORD="${password}"...`);
+const hash = await bcrypt.hash(password, 12);
 async function ensure(client, table, name, args) {
   let current = await client.query(`SELECT id FROM ${table} WHERE name=$1 LIMIT 1`,[name]);
   if(current.rows[0]) return current.rows[0].id;
