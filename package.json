@@ -1,0 +1,15 @@
+{
+  "name": "bloodbridge-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BloodBridge academic prototype — one-command Docker development",
+  "scripts": {
+    "dev": "docker compose up --build",
+    "start": "docker compose up --build -d",
+    "stop": "docker compose down",
+    "logs": "docker compose logs -f",
+    "db:psql": "docker compose exec db psql -U bloodbridge -d bloodbridge",
+    "db:check": "docker compose exec -T db psql -v ON_ERROR_STOP=1 -U bloodbridge -d bloodbridge -f /workspace/database/migrations/009_verify_advanced_objects.sql",
+    "db:reset": "node scripts/reset-warning.js"
+  }
+}

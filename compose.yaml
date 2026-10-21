@@ -1,0 +1,60 @@
+name: bloodbridge
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-bloodbridge}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database:/workspace/database:ro
+      - ./database/init/00-bootstrap.sh:/docker-entrypoint-initdb.d/00-bootstrap.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 25
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-bloodbridge}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./backend:/app
+      - api_node_modules:/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  db_data:
+  api_node_modules:
+  web_node_modules:

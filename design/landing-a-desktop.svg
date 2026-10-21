@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000" role="img" aria-label="BloodBridge concept A · editorial landing page">
+<title>BloodBridge concept A · editorial landing page</title>
+<defs>
+ <linearGradient id="hero" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#243F51"/><stop offset="1" stop-color="#102A3A"/></linearGradient>
+ <linearGradient id="ruby" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FA718B"/><stop offset="1" stop-color="#CA2449"/></linearGradient>
+ <linearGradient id="soft" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFF1F3"/><stop offset="1" stop-color="#FFE0E8"/></linearGradient>
+ <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#D93455" stop-opacity=".17"/><stop offset="1" stop-color="#D93455" stop-opacity="0"/></linearGradient>
+ <filter id="shadow" x="-30%" y="-35%" width="180%" height="200%"><feDropShadow dx="0" dy="9" stdDeviation="13" flood-color="#112D41" flood-opacity=".10"/></filter>
+ <filter id="smshadow" x="-30%" y="-35%" width="180%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#112D41" flood-opacity=".07"/></filter>
+ </defs>
+ <style><![CDATA[
+ text {font-family:Inter,'Segoe UI',Arial,sans-serif;letter-spacing:-.25px}
+ @keyframes hover {0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+ @keyframes hover2 {0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+ @keyframes heartbeat{0%,100%{transform:scale(1)}30%{transform:scale(1.07)}55%{transform:scale(.98)}}
+ @keyframes twinkle{0%,100%{opacity:.3}50%{opacity:1}}
+ @keyframes stroke{from{stroke-dashoffset:120}to{stroke-dashoffset:0}}
+ @keyframes up {from{transform:scaleY(.15);opacity:.4}to{transform:scaleY(1);opacity:1}}
+ @keyframes shift{to{stroke-dashoffset:-48}}
+ @keyframes fadeUp{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:translateY(0)}}
+ .hover{animation:hover 5.5s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
+ .hover2{animation:hover2 4.6s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
+ .beat{animation:heartbeat 2.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+ .twinkle{animation:twinkle 2.7s ease-in-out infinite}
+ .flow{stroke-dasharray:7 9;animation:shift 3.2s linear infinite}
+ .up{animation:up 1.4s ease both;transform-origin:bottom;transform-box:fill-box}
+ .enter{animation:fadeUp .8s ease both}
+ .stroke{stroke-dasharray:120;stroke-dashoffset:120;animation:stroke 2s ease forwards}
+ @media(prefers-reduced-motion:reduce){.hover,.hover2,.beat,.twinkle,.flow,.up,.enter,.stroke{animation:none!important}}
+ ]]></style>
+<rect width="1440" height="1000" fill="#FAF7F3"/>
+<rect x="0" y="0" width="1440" height="84" rx="0" fill="#FAF7F3" />
+<circle cx="88" cy="42" r="19" fill="#D93455" />
+<path d="M88 52 C73 43 79 33 88 40 C97 33 103 43 88 52Z" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="#FFFFFF" />
+<text x="116" y="50" font-size="22" fill="#142D3E" font-weight="790" text-anchor="start" >BloodBridge</text>
+<text x="570" y="49" font-size="14" fill="#142D3E" font-weight="640" text-anchor="start" >The platform</text>
+<text x="720" y="49" font-size="14" fill="#142D3E" font-weight="640" text-anchor="start" >How it works</text>
+<text x="880" y="49" font-size="14" fill="#142D3E" font-weight="640" text-anchor="start" >Find a center</text>
+<text x="1035" y="49" font-size="14" fill="#142D3E" font-weight="640" text-anchor="start" >About us</text>
+<rect x="1210" y="18" width="155" height="47" rx="14" fill="#D93455" />
+<text x="1287.5" y="46.5" font-size="14" fill="#FFFFFF" font-weight="750" text-anchor="middle" >Get started</text>
+<path d="M70 83L1370 83" stroke="#E7EAED" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+<rect x="68" y="106" width="1304" height="598" rx="32" fill="url(#hero)" />
+<circle cx="1089" cy="402" r="259" fill="#29495B" />
+<circle cx="1089" cy="402" r="217" fill="#314F60" />
+<circle cx="1089" cy="402" r="172" fill="#3E5B6B" />
+<circle cx="1089" cy="402" r="287" fill="none" stroke="#718594" stroke-width="1" class="flow"/>
+<rect x="121" y="158" width="204" height="34" rx="17.0" fill="#29495B" />
+<text x="223.0" y="179.08" font-size="12" fill="#FFB8C5" font-weight="750" text-anchor="middle" >A NETWORK THAT CARES</text>
+<text x="120" y="260" font-size="64" fill="#FFFFFF" font-weight="840" text-anchor="start" class="enter">A little time.</text>
+<text x="120" y="332" font-size="64" fill="#FFFFFF" font-weight="840" text-anchor="start" class="enter">A lifetime of</text>
+<text x="120" y="404" font-size="64" fill="#FF8399" font-weight="840" text-anchor="start" class="enter">difference.</text>
+<text x="122" y="458" font-size="18" fill="#BBD0DB" font-weight="490" text-anchor="start" >Connecting blood donors, hospitals and care teams</text>
+<text x="122" y="488" font-size="18" fill="#BBD0DB" font-weight="490" text-anchor="start" >across Sri Lanka through one thoughtful platform.</text>
+<rect x="121" y="532" width="206" height="54" rx="14" fill="#D93455" />
+<text x="224.0" y="564.0" font-size="14" fill="#FFFFFF" font-weight="750" text-anchor="middle" >Join as a donor</text>
+<rect x="344" y="532" width="204" height="54" rx="14" fill="none" stroke="#8195A3" stroke-width="1" />
+<text x="446" y="564" font-size="14" fill="#FFFFFF" font-weight="740" text-anchor="middle" >Explore the network</text>
+<circle cx="140" cy="646" r="7" fill="#119C80" />
+<text x="156" y="652" font-size="13" fill="#B3C5CF" font-weight="620" text-anchor="start" >Built for coordination, not clinical decisions</text>
+<g class="hover">
+<circle cx="1089" cy="400" r="142" fill="#FFFFFF" />
+<circle cx="1089" cy="400" r="126" fill="#FFF0F3" />
+<path d="M 1089 348.35 C 1064.4 391.4,1031.19 424.61,1031.19 452.9 A 57.81 57.81 0 0 0 1146.81 452.9 C 1146.81 424.61,1113.6 391.4,1089 348.35Z" stroke="url(#ruby)" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" fill="url(#ruby)" />
+<text x="1089" y="433" font-size="25" fill="#FFFFFF" font-weight="840" text-anchor="middle" >GIVE</text>
+<text x="1089" y="460" font-size="25" fill="#FFFFFF" font-weight="840" text-anchor="middle" >HOPE</text>
+</g>
+<g class="hover2">
+<rect x="840" y="230" width="205" height="88" rx="18" fill="#FFFFFF" filter="url(#smshadow)"/>
+<circle cx="879" cy="272" r="18" fill="#E8F8F2" />
+<g transform="translate(868 261) scale(0.9166666666666666)"><path d="M12 21C-2 12 1 3 8 3c2 0 4 1 4 3 0-2 2-3 4-3 7 0 10 9-4 18z" fill="none" stroke="#119C80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="907" y="265" font-size="13" fill="#142D3E" font-weight="770" text-anchor="start" >Donor community</text>
+<text x="907" y="287" font-size="11" fill="#708294" font-weight="540" text-anchor="start" >Ready to help</text>
+</g>
+<g class="hover">
+<rect x="1172" y="491" width="162" height="86" rx="18" fill="#FFFFFF" filter="url(#smshadow)"/>
+<circle cx="1200" cy="531" r="17" fill="#FFF0F3" />
+<g transform="translate(1191 522) scale(0.75)"><path d="M4 22V5h16v17 M4 10h16 M12 5v7 M8 9h8 M10 22v-6h4v6" fill="none" stroke="#D93455" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="1225" y="523" font-size="12" fill="#142D3E" font-weight="750" text-anchor="start" >Hospital</text>
+<text x="1225" y="542" font-size="12" fill="#142D3E" font-weight="750" text-anchor="start" >support</text>
+</g>
+<text x="73" y="782" font-size="34" fill="#142D3E" font-weight="830" text-anchor="start" >One bridge. Four ways to make a difference.</text>
+<text x="73" y="814" font-size="16" fill="#708294" font-weight="460" text-anchor="start" >A connected experience designed for every part of the donation journey.</text>
+<rect x="70" y="840" width="306" height="132" rx="19" fill="#FFFFFF" stroke="#EBEEF2" stroke-width="1" />
+<circle cx="112" cy="884" r="23" fill="#FFF0F3" />
+<g transform="translate(100 872) scale(1.0)"><path d="M12 21C-2 12 1 3 8 3c2 0 4 1 4 3 0-2 2-3 4-3 7 0 10 9-4 18z" fill="none" stroke="#D93455" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="148" y="880" font-size="16" fill="#142D3E" font-weight="790" text-anchor="start" >For donors</text>
+<text x="148" y="905" font-size="12" fill="#708294" font-weight="510" text-anchor="start" >Stay available and inspired</text>
+<g transform="translate(333 878) scale(0.875)"><path d="M4 12h16m-7-7 7 7-7 7" fill="none" stroke="#A9B7C1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="399" y="840" width="306" height="132" rx="19" fill="#FFFFFF" stroke="#EBEEF2" stroke-width="1" />
+<circle cx="441" cy="884" r="23" fill="#FFF0F3" />
+<g transform="translate(429 872) scale(1.0)"><path d="M4 22V5h16v17 M4 10h16 M12 5v7 M8 9h8 M10 22v-6h4v6" fill="none" stroke="#D93455" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="477" y="880" font-size="16" fill="#142D3E" font-weight="790" text-anchor="start" >For hospitals</text>
+<text x="477" y="905" font-size="12" fill="#708294" font-weight="510" text-anchor="start" >Coordinate urgent requests</text>
+<g transform="translate(662 878) scale(0.875)"><path d="M4 12h16m-7-7 7 7-7 7" fill="none" stroke="#A9B7C1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="728" y="840" width="306" height="132" rx="19" fill="#FFFFFF" stroke="#EBEEF2" stroke-width="1" />
+<circle cx="770" cy="884" r="23" fill="#FFF0F3" />
+<g transform="translate(758 872) scale(1.0)"><path d="M12 2C9 7 5 11 5 16a7 7 0 0 0 14 0c0-5-4-9-7-14z" fill="none" stroke="#D93455" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="806" y="880" font-size="16" fill="#142D3E" font-weight="790" text-anchor="start" >For blood banks</text>
+<text x="806" y="905" font-size="12" fill="#708294" font-weight="510" text-anchor="start" >Manage units with clarity</text>
+<g transform="translate(991 878) scale(0.875)"><path d="M4 12h16m-7-7 7 7-7 7" fill="none" stroke="#A9B7C1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="1057" y="840" width="306" height="132" rx="19" fill="#FFFFFF" stroke="#EBEEF2" stroke-width="1" />
+<circle cx="1099" cy="884" r="23" fill="#FFF0F3" />
+<g transform="translate(1087 872) scale(1.0)"><path d="M4 20V13h4v7M10 20V8h4v12M16 20V3h4v17" fill="none" stroke="#D93455" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="1135" y="880" font-size="16" fill="#142D3E" font-weight="790" text-anchor="start" >For administrators</text>
+<text x="1135" y="905" font-size="12" fill="#708294" font-weight="510" text-anchor="start" >Understand the full picture</text>
+<g transform="translate(1320 878) scale(0.875)"><path d="M4 12h16m-7-7 7 7-7 7" fill="none" stroke="#A9B7C1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

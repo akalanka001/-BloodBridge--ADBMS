@@ -1,0 +1,519 @@
+openapi: 3.0.3
+info:
+  title: BloodBridge — Implemented Starter API
+  version: 0.1.0
+  description: Academic prototype. This specification covers only actual Express routes
+    in this starter. No clinical use.
+servers:
+- url: http://localhost:4000
+tags:
+- name: Auth
+- name: Geography
+- name: Donors
+- name: Camps
+- name: Requests
+- name: Inventory
+paths:
+  /api/v1/auth/register-donor:
+    post:
+      tags:
+      - Auth
+      summary: Register new donor account
+      responses:
+        '201':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DonorRegistration'
+  /api/v1/auth/login:
+    post:
+      tags:
+      - Auth
+      summary: Login and receive JWT
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+  /api/v1/auth/me:
+    get:
+      tags:
+      - Auth
+      summary: Get logged-in user
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+  /api/v1/locations/provinces:
+    get:
+      tags:
+      - Geography
+      summary: List provinces
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+  /api/v1/locations/districts:
+    get:
+      tags:
+      - Geography
+      summary: List districts; optional provinceCode query
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+  /api/v1/locations/ds-divisions:
+    get:
+      tags:
+      - Geography
+      summary: List DS divisions; districtCode query required
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+  /api/v1/donors/me:
+    get:
+      tags:
+      - Donors
+      summary: Current donor profile
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): DONOR'
+  /api/v1/donors/me/preferences:
+    patch:
+      tags:
+      - Donors
+      summary: Change donor contact preferences
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): DONOR'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Preferences'
+  /api/v1/camps:
+    get:
+      tags:
+      - Camps
+      summary: Find approved upcoming donation camps; optional districtCode
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+    post:
+      tags:
+      - Camps
+      summary: Create draft camp
+      responses:
+        '201':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): BANK_STAFF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampDraft'
+  /api/v1/camps/{id}:
+    get:
+      tags:
+      - Camps
+      summary: Get public camp by UUID
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+  /api/v1/camps/{id}/submit:
+    post:
+      tags:
+      - Camps
+      summary: Send camp for bank review
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): BANK_STAFF'
+  /api/v1/camps/{id}/approve:
+    post:
+      tags:
+      - Camps
+      summary: Approve using PostgreSQL stored procedure
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): BANK_STAFF'
+  /api/v1/camps/{id}/registrations:
+    post:
+      tags:
+      - Camps
+      summary: Register donor interest
+      responses:
+        '201':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): DONOR'
+  /api/v1/requests:
+    get:
+      tags:
+      - Requests
+      summary: List requests at logged-in staff hospitals
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): HOSPITAL_STAFF'
+    post:
+      tags:
+      - Requests
+      summary: Create transactional request and line items
+      responses:
+        '201':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): HOSPITAL_STAFF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewRequest'
+  /api/v1/inventory/summary:
+    get:
+      tags:
+      - Inventory
+      summary: Summary from stock view
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): BANK_STAFF, HOSPITAL_STAFF, ADMIN'
+  /api/v1/inventory/reservations:
+    post:
+      tags:
+      - Inventory
+      summary: Reserve one unit through locked PostgreSQL function
+      responses:
+        '201':
+          description: Success
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not authorized
+        '409':
+          description: Conflict
+      security:
+      - bearerAuth: []
+      description: 'Allowed role(s): BANK_STAFF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitReservation'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Credentials:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    DonorRegistration:
+      type: object
+      required:
+      - fullName
+      - email
+      - password
+      - districtCode
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 10
+        districtCode:
+          type: string
+        dsCode:
+          type: string
+          nullable: true
+        bloodTypeCode:
+          type: string
+          nullable: true
+          enum:
+          - O-
+          - O+
+          - A-
+          - A+
+          - B-
+          - B+
+          - AB-
+          - AB+
+        availableForContact:
+          type: boolean
+        campNotificationsOptIn:
+          type: boolean
+    Preferences:
+      type: object
+      required:
+      - availableForContact
+      - campNotificationsOptIn
+      properties:
+        availableForContact:
+          type: boolean
+        campNotificationsOptIn:
+          type: boolean
+    CampDraft:
+      type: object
+      required:
+      - title
+      - organizerId
+      - bloodBankId
+      - locationId
+      - startsAt
+      - endsAt
+      properties:
+        title:
+          type: string
+        organizerId:
+          type: integer
+        bloodBankId:
+          type: integer
+        locationId:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          nullable: true
+        publicContact:
+          type: string
+    NewRequest:
+      type: object
+      required:
+      - hospitalId
+      - urgency
+      - neededBy
+      - items
+      properties:
+        hospitalId:
+          type: integer
+        urgency:
+          type: string
+          enum:
+          - ROUTINE
+          - URGENT
+          - CRITICAL
+        neededBy:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+            - bloodTypeCode
+            - componentCode
+            - unitsRequested
+            properties:
+              bloodTypeCode:
+                type: string
+              componentCode:
+                type: string
+                enum:
+                - RBC
+                - PLASMA
+                - PLATELETS
+              unitsRequested:
+                type: integer
+                minimum: 1
+    UnitReservation:
+      type: object
+      required:
+      - requestItemId
+      - bloodUnitId
+      properties:
+        requestItemId:
+          type: string
+          format: uuid
+        bloodUnitId:
+          type: string
+          format: uuid

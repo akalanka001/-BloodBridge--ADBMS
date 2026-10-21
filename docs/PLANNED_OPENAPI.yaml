@@ -1,0 +1,1510 @@
+openapi: 3.0.3
+info:
+  title: BloodBridge — Academic Prototype API
+  version: 0.1.0
+  description: Database-first API contract for 20–23 October 2026 sprint. Fictional demo inventory and screening statuses;
+    NOT for clinical decisions. UTC ISO timestamps in transport, display Asia/Colombo in the UI.
+servers:
+- url: http://localhost:4000/api/v1
+tags:
+- name: Auth
+- name: Locations
+- name: Donors
+- name: Hospitals
+- name: Inventory
+- name: Requests
+- name: Matching
+- name: Fulfillment
+- name: Camps
+- name: Admin
+- name: Analytics
+paths:
+  /auth/register-donor:
+    post:
+      tags:
+      - Auth
+      summary: Create a donor user and profile
+      operationId: post_AuthRegister-Donor
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DonorRegister'
+  /auth/login:
+    post:
+      tags:
+      - Auth
+      summary: Login and receive JWT
+      operationId: post_AuthLogin
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Auth'
+  /auth/me:
+    get:
+      tags:
+      - Auth
+      summary: Current identity and assigned institution
+      operationId: get_AuthMe
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - ALL
+  /locations/provinces:
+    get:
+      tags:
+      - Locations
+      summary: List provinces
+      operationId: get_LocationsProvinces
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      x-roles:
+      - PUBLIC
+  /locations/districts:
+    get:
+      tags:
+      - Locations
+      summary: List districts under a province
+      operationId: get_LocationsDistricts
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOk'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      x-roles:
+      - PUBLIC
+      parameters:
+      - name: provinceCode
+        in: query
+        required: false
+        schema:
+          type: string
+  /locations/ds-divisions:
+    get:
+      tags:
+      - Locations
+      summary: List DS divisions under a district
+      operationId: get_LocationsDs-Divisions
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      x-roles:
+      - PUBLIC
+      parameters:
+      - name: districtCode
+        in: query
+        required: true
+        schema:
+          type: string
+  /donors/me:
+    get:
+      tags:
+      - Donors
+      summary: Retrieve own donor profile
+      operationId: get_DonorsMe
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - DONOR
+    patch:
+      tags:
+      - Donors
+      summary: Update own area, availability and camp notification consent
+      operationId: patch_DonorsMe
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - DONOR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DonorPatch'
+  /donors/search:
+    get:
+      tags:
+      - Donors
+      summary: Authorized potential donor search, no personal contacts in public result
+      operationId: get_DonorsSearch
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOk'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - HOSPITAL_STAFF
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: bloodTypeCode
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: districtCode
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+      description: Only approximate area and anonymized identifiers unless explicitly authorized.
+  /requests:
+    post:
+      tags:
+      - Requests
+      summary: Create hospital blood request with line items
+      operationId: post_Requests
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - HOSPITAL_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BloodRequestCreate'
+    get:
+      tags:
+      - Requests
+      summary: List requests scoped to staff institution
+      operationId: get_Requests
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOk'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - HOSPITAL_STAFF
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: urgency
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+  /requests/{requestId}:
+    get:
+      tags:
+      - Requests
+      summary: Get request with item quantities and fulfillments
+      operationId: get_RequestsById
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - HOSPITAL_STAFF
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+  /request-items/{itemId}/matches:
+    post:
+      tags:
+      - Matching
+      summary: Generate potential donor candidates (non-clinical)
+      operationId: post_Request-ItemsByIdMatches
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - HOSPITAL_STAFF
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DonorMatchSearch'
+      parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+      description: Exact blood-type match and geographic reach only. This MUST NOT determine donation or transfusion eligibility.
+  /banks/{bankId}/inventory:
+    get:
+      tags:
+      - Inventory
+      summary: List released, in-stock, unexpired units aggregated by group and component
+      operationId: get_BanksByIdInventory
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOk'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - HOSPITAL_STAFF
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: bankId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: bloodTypeCode
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: componentCode
+        in: query
+        required: false
+        schema:
+          type: string
+  /banks/{bankId}/donations:
+    post:
+      tags:
+      - Inventory
+      summary: Record a donation at assigned blood bank
+      operationId: post_BanksByIdDonations
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DonationCreate'
+      parameters:
+      - name: bankId
+        in: path
+        required: true
+        schema:
+          type: integer
+  /banks/{bankId}/units:
+    get:
+      tags:
+      - Inventory
+      summary: List identifiable stock units for authorized bank staff
+      operationId: get_BanksByIdUnits
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOk'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: bankId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: inventoryStatus
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: bloodTypeCode
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: componentCode
+        in: query
+        required: false
+        schema:
+          type: string
+      description: For reservation selection, list only unit UUIDs in staff-authorized scope; do not publicly expose units.
+    post:
+      tags:
+      - Inventory
+      summary: Create QUARANTINED component-unit record
+      operationId: post_BanksByIdUnits
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitCreate'
+      parameters:
+      - name: bankId
+        in: path
+        required: true
+        schema:
+          type: integer
+  /units/{unitId}/release:
+    patch:
+      tags:
+      - Inventory
+      summary: Record simulated staff verification/release outcome
+      operationId: patch_UnitsByIdRelease
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitRelease'
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          type: string
+      description: 'Academic prototype: actual clinical release requires qualified lab process and real validation.'
+  /request-items/{itemId}/reservations:
+    post:
+      tags:
+      - Inventory
+      summary: Atomically reserve one matching released unit
+      operationId: post_Request-ItemsByIdReservations
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationCreate'
+      parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+      description: Database transaction and row locking required. Return 409 for already reserved/expired/unreleased stock.
+  /fulfillments:
+    post:
+      tags:
+      - Fulfillment
+      summary: Create fulfillment from reservations
+      operationId: post_Fulfillments
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FulfillmentCreate'
+  /fulfillments/{fulfillmentId}/status:
+    patch:
+      tags:
+      - Fulfillment
+      summary: Update dispatch or receipt state
+      operationId: patch_FulfillmentsByIdStatus
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - HOSPITAL_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FulfillmentStatus'
+      parameters:
+      - name: fulfillmentId
+        in: path
+        required: true
+        schema:
+          type: string
+  /camps:
+    get:
+      tags:
+      - Camps
+      summary: Public approved future camps, filter by district and date
+      operationId: get_Camps
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOk'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      x-roles:
+      - PUBLIC
+      parameters:
+      - name: districtCode
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: dsCode
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+    post:
+      tags:
+      - Camps
+      summary: Create draft camp proposal for an organizing blood bank
+      operationId: post_Camps
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampCreate'
+  /camps/{campId}:
+    get:
+      tags:
+      - Camps
+      summary: Public detail for approved camp, institution staff can see their drafts
+      operationId: get_CampsById
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      x-roles:
+      - PUBLIC
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: campId
+        in: path
+        required: true
+        schema:
+          type: string
+  /camps/{campId}/submit:
+    post:
+      tags:
+      - Camps
+      summary: Submit draft to designated blood bank for approval
+      operationId: post_CampsByIdSubmit
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: campId
+        in: path
+        required: true
+        schema:
+          type: string
+  /camps/{campId}/decision:
+    post:
+      tags:
+      - Camps
+      summary: Approve/reject camp from authorized blood bank
+      operationId: post_CampsByIdDecision
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampApproval'
+      parameters:
+      - name: campId
+        in: path
+        required: true
+        schema:
+          type: string
+  /camps/{campId}/registrations:
+    post:
+      tags:
+      - Camps
+      summary: Donor registers interest (not confirmed donation)
+      operationId: post_CampsByIdRegistrations
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - DONOR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampRegistration'
+      parameters:
+      - name: campId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+      - Camps
+      summary: List donor registration status for assigned blood bank
+      operationId: get_CampsByIdRegistrations
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOk'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - BANK_STAFF
+      - ADMIN
+      parameters:
+      - name: campId
+        in: path
+        required: true
+        schema:
+          type: string
+  /admin/overview:
+    get:
+      tags:
+      - Admin
+      summary: Counts, approvals and high-level overview
+      operationId: get_AdminOverview
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - ADMIN
+  /analytics/demand:
+    get:
+      tags:
+      - Analytics
+      summary: 'Warehouse: blood demand by month, district and component'
+      operationId: get_AnalyticsDemand
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - ADMIN
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: districtCode
+        in: query
+        required: false
+        schema:
+          type: string
+  /analytics/camps:
+    get:
+      tags:
+      - Analytics
+      summary: 'Warehouse: approved camps and registered/attended counts'
+      operationId: get_AnalyticsCamps
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - ADMIN
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+  /admin/performance:
+    get:
+      tags:
+      - Admin
+      summary: Saved benchmark comparisons (no arbitrary SQL endpoint)
+      operationId: get_AdminPerformance
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Outside organization or role
+        '409':
+          description: Conflict with current state
+      security:
+      - bearerAuth: []
+      x-roles:
+      - ADMIN
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          properties:
+            code: &id001
+              type: string
+            message: *id001
+            details:
+              type: object
+    Ok:
+      type: object
+      properties:
+        data:
+          type: object
+        meta:
+          type: object
+    Auth:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    DonorRegister:
+      type: object
+      required:
+      - fullName
+      - email
+      - password
+      - districtCode
+      properties:
+        fullName: *id001
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        phone: *id001
+        bloodTypeCode: *id001
+        districtCode: *id001
+        dsCode: *id001
+        availableForContact:
+          type: boolean
+        campNotificationsOptIn:
+          type: boolean
+    Token:
+      type: object
+      properties:
+        accessToken: *id001
+        tokenType:
+          type: string
+          example: Bearer
+        user:
+          type: object
+    DonorPatch:
+      type: object
+      properties:
+        districtCode: *id001
+        dsCode: *id001
+        availableForContact:
+          type: boolean
+        campNotificationsOptIn:
+          type: boolean
+    BloodRequestCreate:
+      type: object
+      required:
+      - hospitalId
+      - urgency
+      - neededBy
+      - items
+      properties:
+        hospitalId:
+          type: integer
+        urgency:
+          type: string
+          enum:
+          - ROUTINE
+          - URGENT
+          - CRITICAL
+        neededBy:
+          type: string
+          format: date-time
+        notes: *id001
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+            - bloodTypeCode
+            - componentCode
+            - unitsRequested
+            properties:
+              bloodTypeCode: *id001
+              componentCode: *id001
+              unitsRequested:
+                type: integer
+                minimum: 1
+    DonationCreate:
+      type: object
+      required:
+      - donorId
+      - collectedAt
+      properties:
+        donorId:
+          type: string
+          format: uuid
+        collectedAt:
+          type: string
+          format: date-time
+        campId:
+          type: string
+          format: uuid
+        collectedVolumeMl:
+          type: integer
+    UnitCreate:
+      type: object
+      required:
+      - donationId
+      - bloodTypeCode
+      - componentCode
+      - collectedAt
+      - expiresAt
+      properties:
+        donationId:
+          type: string
+          format: uuid
+        bloodTypeCode: *id001
+        componentCode: *id001
+        collectedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    UnitRelease:
+      type: object
+      required:
+      - releaseDecision
+      properties:
+        releaseDecision:
+          type: string
+          enum:
+          - RELEASED
+          - REJECTED
+        verificationNote: *id001
+    ReservationCreate:
+      type: object
+      required:
+      - bloodUnitId
+      properties:
+        bloodUnitId:
+          type: string
+          format: uuid
+    FulfillmentCreate:
+      type: object
+      required:
+      - requestId
+      - bankId
+      - reservationIds
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        bankId:
+          type: integer
+        reservationIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+    FulfillmentStatus:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - DISPATCHED
+          - RECEIVED
+          - CANCELLED
+    CampCreate:
+      type: object
+      required:
+      - title
+      - organizerId
+      - bloodBankId
+      - locationId
+      - startsAt
+      - endsAt
+      properties:
+        title: *id001
+        organizerId:
+          type: integer
+        bloodBankId:
+          type: integer
+        locationId:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+        publicContact: *id001
+    CampApproval:
+      type: object
+      required:
+      - decision
+      properties:
+        decision:
+          type: string
+          enum:
+          - APPROVED
+          - REJECTED
+        note: *id001
+    CampRegistration:
+      type: object
+      properties: {}
+    DonorMatchSearch:
+      type: object
+      properties:
+        districtCode: *id001
+        maxResults:
+          type: integer
+          minimum: 1
+          maximum: 100
+    PaginatedOk:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
