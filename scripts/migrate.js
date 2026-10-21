@@ -99,10 +99,52 @@ async function ensureDatabaseExists() {
   }
 }
 
+const ADVISORY_LOCK_ID = 849201948;
+
+function stripOuterTransactionBlocks(sql) {
+  const lines = sql.split('\n');
+  let inDollarQuote = false;
+  let dollarTag = null;
+  const filtered = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const dollarMatches = line.match(/\$[a-zA-Z0-9_]*\$/g);
+    if (dollarMatches) {
+      for (const tag of dollarMatches) {
+        if (!inDollarQuote) {
+          inDollarQuote = true;
+          dollarTag = tag;
+        } else if (tag === dollarTag) {
+          inDollarQuote = false;
+          dollarTag = null;
+        }
+      }
+    }
+
+    if (!inDollarQuote) {
+      if (/^BEGIN\s*;/i.test(trimmed) || /^COMMIT\s*;/i.test(trimmed)) {
+        filtered.push(`-- [migrate stripped outer transaction]: ${line}`);
+        continue;
+      }
+    }
+    filtered.push(line);
+  }
+
+  return filtered.join('\n');
+}
+
 async function run() {
   await ensureDatabaseExists();
   const client = await pool.connect();
+  let lockAcquired = false;
+
   try {
+    // Acquire PostgreSQL session advisory lock to serialize concurrent migration runners
+    console.log('[migrate] Acquiring migration lock (advisory lock: 849201948)...');
+    await client.query('SELECT pg_advisory_lock($1);', [ADVISORY_LOCK_ID]);
+    lockAcquired = true;
+
     // 1. Ensure schema_migrations table exists
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -160,11 +202,12 @@ async function run() {
 
       console.log(`[migrate] Applying migration: ${file}...`);
       const filePath = path.join(migrationsDir, file);
-      const sql = fs.readFileSync(filePath, 'utf8');
+      const rawSql = fs.readFileSync(filePath, 'utf8');
+      const sanitizedSql = stripOuterTransactionBlocks(rawSql);
 
       await client.query('BEGIN');
       try {
-        await client.query(sql);
+        await client.query(sanitizedSql);
         await client.query('INSERT INTO schema_migrations(version) VALUES ($1)', [file]);
         await client.query('COMMIT');
         console.log(`[migrate] Successfully applied: ${file}`);
@@ -182,10 +225,16 @@ async function run() {
       console.log(`[migrate] Successfully applied ${appliedCount} migration(s).`);
     }
   } finally {
+    if (lockAcquired) {
+      try {
+        await client.query('SELECT pg_advisory_unlock($1);', [ADVISORY_LOCK_ID]);
+      } catch {}
+    }
     client.release();
     await pool.end();
   }
 }
+
 
 run().catch((err) => {
   console.error('[migrate] Migration runner failed:', err.message);

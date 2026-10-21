@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool, inTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { broadcastCampCapacity } from '../socket.js';
 const router = Router();
 const uuid = z.string().uuid();
 
@@ -82,7 +83,19 @@ router.post('/:id/registrations', authenticate, requireRole('DONOR'), async (req
        RETURNING id,camp_id,status,registered_at`, [id, req.user.id],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Donor profile missing' });
+    try {
+      const { rows: stats } = await pool.query(
+        "SELECT count(*)::int AS count FROM camp_registrations WHERE camp_id=$1 AND status='REGISTERED'",
+        [id],
+      );
+      broadcastCampCapacity({
+        campId: id,
+        registeredCount: stats[0]?.count || 1,
+        status: 'APPROVED',
+      });
+    } catch {}
     res.status(201).json({ data: rows[0] });
+
   } catch (err) { next(err); }
 });
 export default router;

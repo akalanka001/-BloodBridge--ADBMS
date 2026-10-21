@@ -41,12 +41,19 @@ app.use((err, _req, res, _next) => {
   console.error('API failure:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
-export { app };
+import http from 'node:http';
+import { initSocketServer } from './socket.js';
+
+const server = http.createServer(app);
+const io = initSocketServer(server);
+
+export { app, server, io };
 export default app;
 
 const isMain = process.argv[1] && process.argv[1].endsWith('server.js');
 if (isMain && process.env.NODE_ENV !== 'test') {
   const port = Number(process.env.PORT || 4000);
-  const server = app.listen(port, '0.0.0.0', () => console.log(`BloodBridge API listening on :${port}`));
+  server.listen(port, '0.0.0.0', () => console.log(`BloodBridge API & Socket.io listening on :${port}`));
   process.on('SIGTERM', () => server.close(() => pool.end()));
 }
+

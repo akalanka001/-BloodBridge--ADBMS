@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { inTransaction, pool } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { broadcastEmergencyRequest } from '../socket.js';
 const router = Router();
 router.use(authenticate, requireRole('HOSPITAL_STAFF'));
 const schema = z.object({
@@ -52,7 +53,19 @@ router.post('/', async (req, res, next) => {
       return rows[0];
     });
     if (!output) return res.status(403).json({ error: 'Not assigned to requested hospital' });
+    if (data.urgency === 'CRITICAL' || data.urgency === 'URGENT') {
+      broadcastEmergencyRequest({
+        id: output.id,
+        hospitalName: `Hospital #${data.hospitalId}`,
+        urgency: data.urgency,
+        bloodTypeCode: data.items[0]?.bloodTypeCode,
+        componentCode: data.items[0]?.componentCode,
+        unitsRequested: data.items.reduce((sum, i) => sum + i.unitsRequested, 0),
+        neededBy: data.neededBy,
+      });
+    }
     res.status(201).json({ data: output });
+
   } catch (err) { next(err); }
 });
 export default router;
