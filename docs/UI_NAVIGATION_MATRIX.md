@@ -15,8 +15,9 @@ PUBLIC VISITOR:
 
 AUTHENTICATED DONOR:
   #/donor/dashboard ─┬──> #/donor/profile (Area picker, contact & emergency appeal consent)
-                     ├──> #/donor/history (Past synthetic donation records)
-                     └──> #/donor/camps (My registered camps, cancel registration)
+                     ├──> #/donor/history (Past verified donation records)
+                     ├──> #/donor/camps (My registered camps, cancel registration)
+                     └──> #/donor/claim (Claim existing offline walk-in donor record)
 
 HOSPITAL MEDICAL STAFF:
   #/hospital/requests ──┬──> #/hospital/requests/new (Multi-item line builder, urgency selector)
@@ -26,11 +27,15 @@ BLOOD BANK LABORATORY STAFF:
   #/bank/inventory ─────┬──> #/bank/units (Component release, quarantine & expiry filters)
                         ├──> #/bank/transfers (Inter-bank transfer dispatch & receipt wizard)
                         ├──> #/bank/requests (Cluster requests, reservation picker)
-                        └──> #/bank/camps/manage (Camp review, approval, attendance check-in)
+                        ├──> #/bank/camps/manage (Camp review, approval, attendance check-in)
+                        └──> #/bank/intake ──┬──> #/bank/intake/lookup (Privacy-preserving NIC/phone lookup)
+                                             ├──> #/bank/intake/walkin (Enroll walk-in donor without user account)
+                                             └──> #/bank/intake/visits (Check-in, clinical assessment, collection)
 
 SYSTEM ADMINISTRATOR:
   #/admin/dashboard ────┬──> #/admin/institutions (Hospitals, Blood Banks, Cluster mapping)
                         ├──> #/admin/staff (Membership assignment & revocation)
+                        ├──> #/admin/claims (Review and approve/reject donor account link claims)
                         ├──> #/admin/analytics (Star schema OLAP reports, demand forecasts)
                         └──> #/admin/benchmarks (PostgreSQL EXPLAIN ANALYZE live comparisons)
 ```

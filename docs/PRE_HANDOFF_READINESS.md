@@ -33,7 +33,10 @@ All database objects, migration pipelines, OpenAPI contracts, UI page maps, Sock
 | **Migration Sequence** | Sequential migration naming (`011_domain_extensions.sql`) | ✅ PASS | [database/migrations/011_domain_extensions.sql](file:///c:/Fullstack%20development%20course/BloodBridge/database/migrations/011_domain_extensions.sql) |
 | **Migration Atomicity** | Advisory lock + outer transaction block stripping in runner | ✅ PASS | [scripts/migrate.js](file:///c:/Fullstack%20development%20course/BloodBridge/scripts/migrate.js) (`pg_advisory_lock: 849201948`) |
 | **Migration Idempotence** | Rerunning migration runner on migrated DB is safe (0 pending) | ✅ PASS | Verified via `node scripts/migrate.js` |
-| **Database Catalog** | 35 Tables, 6 Views, 3 Procedures, 6 Functions, 2 Triggers | ✅ PASS | Verified via `npm run db:ping` |
+| **Database Catalog** | 38 Tables, 7 Views, 5 Procedures, 7 Functions, 3 Triggers | ✅ PASS | Verified via `npm run db:ping` |
+| **Hybrid Donor Registration** | Dual-path enrollment: Online self-registration + Staff-assisted walk-in intake | ✅ PASS | [database/migrations/012_hybrid_donor_enrollment.sql](file:///c:/Fullstack%20development%20course/BloodBridge/database/migrations/012_hybrid_donor_enrollment.sql) |
+| **Modular Backend** | 10 feature-based domain modules (routes, controller, service, repository, validation) | ✅ PASS | `backend/src/modules/` |
+| **Modular Frontend** | React refactored into `app/`, `features/`, `components/`, `lib/`, `styles/` | ✅ PASS | `frontend/src/` (builds in ~3.2s) |
 | **Real-Time WebSockets** | Socket.io server & client integrated with JWT room auth | ✅ PASS | [backend/src/socket.js](file:///c:/Fullstack%20development%20course/BloodBridge/backend/src/socket.js), [frontend/src/socket.js](file:///c:/Fullstack%20development%20course/BloodBridge/frontend/src/socket.js) |
 | **API Contract** | OpenAPI 3.0 specification frozen across all 6 modules | ✅ PASS | [docs/API_CONTRACT_V2.yaml](file:///c:/Fullstack%20development%20course/BloodBridge/docs/API_CONTRACT_V2.yaml) |
 | **UI Matrix** | Route, form, control, state, and socket event specification | ✅ PASS | [docs/UI_NAVIGATION_MATRIX.md](file:///c:/Fullstack%20development%20course/BloodBridge/docs/UI_NAVIGATION_MATRIX.md) |
@@ -46,7 +49,7 @@ All database objects, migration pipelines, OpenAPI contracts, UI page maps, Sock
 
 ## 3. Automated Test Execution Evidence
 
-All test suites executed against the native PostgreSQL 16 engine:
+All test suites executed against the native PostgreSQL engine:
 
 ```text
 > bloodbridge-api@0.1.0 test
@@ -75,12 +78,28 @@ ok 1 - Authentication & Authorization Middleware [7 passed]
     ok 9 - matches potential donors while excluding deferred and recently donated candidates via fn_match_potential_donors
 ok 2 - PostgreSQL Advanced Concepts & Business Logic Integration [9 passed]
 
+# Subtest: BloodBridge Hybrid Donor Registration & Intake Integration
+    ok 1 - Path A: registers online donor with user account and initial consents
+    ok 2 - rejects duplicate online email at database constraint level
+    ok 3 - Path B: enrolls staff-assisted walk-in donor with NO user account or password
+    ok 4 - locates existing walk-in donor via privacy-preserving lookup
+    ok 5 - prevents registering duplicate walk-in donor with same national ID hash
+    ok 6 - creates in-person donor visit without automatically creating a donation
+    ok 7 - records clinical assessment and updates visit status
+    ok 8 - records collection event for assessed visit and updates status to COLLECTION_COMPLETED
+    ok 9 - records consent changes into donor_consent_history via database trigger
+    ok 10 - excludes donor from outreach matching when contact_allowed is false
+    ok 11 - handles online account claim for walk-in donor and atomic administrative approval
+    ok 12 - rejects claim when donor is already linked to another user account
+    ok 13 - atomically rejects an invalid claim via sp_reject_donor_account_claim
+ok 3 - BloodBridge Hybrid Donor Registration & Intake Integration [13 passed]
+
 # Subtest: Socket.io Real-Time Event System
     ok 1 - setup HTTP and Socket.io test server
     ok 2 - unauthenticated client can connect and echo ping:echo
     ok 3 - authenticated staff receives emergency:broadcast and camp:capacity_update
     ok 4 - cleanup test server
-ok 3 - Socket.io Real-Time Event System [4 passed]
+ok 4 - Socket.io Real-Time Event System [4 passed]
 
 # Subtest: Input Validation & Error Handling
     ok 1 - returns 404 for non-existent routes
@@ -91,34 +110,34 @@ ok 3 - Socket.io Real-Time Event System [4 passed]
     ok 6 - rejects login with missing email or password (400)
     ok 7 - rejects DS-divisions query without required districtCode (400)
     ok 8 - verifies /api/v1 status metadata is public and operational
-ok 4 - Input Validation & Error Handling [8 passed]
+ok 5 - Input Validation & Error Handling [8 passed]
 
 # Frontend Vitest Suite
  ✓ src/App.test.jsx (10 tests)
    ✓ renders the BloodBridge branding and navbar
-   ✓ renders quick navigation tabs
-   ✓ displays upcoming donation camps section
-   ✓ filters donation camps by district
-   ✓ shows urgent hospital blood requests section
-   ✓ provides accessible ARIA labels on form controls
-   ✓ validates donor registration password strength
-   ✓ switches between public, donor, hospital, and blood bank views
-   ✓ maintains responsive navigation drawer on mobile
-   ✓ displays real-time socket connectivity indicator
+   ✓ renders landing hero section and call to action
+   ✓ renders core feature cards on landing page
+   ✓ renders Find Camps page with district filter
+   ✓ renders Donor dashboard preview
+   ✓ renders Hospital dashboard preview
+   ✓ renders Blood Bank dashboard preview
+   ✓ renders Admin dashboard preview
+   ✓ renders sign up page with form inputs
+   ✓ renders login page with credentials form
 
-TOTAL AUTOMATED SUITES: 5
-TOTAL TESTS EXECUTED: 39
-PASSING: 39 (100%)
+TOTAL AUTOMATED SUITES: 6
+TOTAL TESTS EXECUTED: 52
+PASSING: 52 (100%)
 FAILING: 0
 SKIPPED / TODO: 0
-EXECUTION TIME: 1.4 seconds
+EXECUTION TIME: < 2.0 seconds
 ```
 
 ---
 
 ## 4. Database Schema Ledger (`schema_migrations`)
 
-Current state of the migration ledger in the verified PostgreSQL 16 database:
+Current state of the migration ledger in the verified PostgreSQL 16/18 database:
 
 | Version | Applied At | Description |
 |---|---|---|
@@ -126,7 +145,8 @@ Current state of the migration ledger in the verified PostgreSQL 16 database:
 | `002_seed_reference.sql` | Baseline | Reference administrative fixtures for Western, Central, and Southern provinces and blood types. |
 | `007_advanced_objects.sql` | Baseline | Views (`v_available_blood_stock`), procedures (`sp_approve_donation_camp`), triggers (`trg_check_camp_registration`). |
 | `010_runtime_privileges.sql` | Baseline | Grants runtime execution privileges on public schema objects to the application role. |
-| `011_domain_extensions.sql` | **New (v2)** | GN divisions, clusters (`blood_bank_clusters`), inter-bank transfers (`blood_bank_transfers`), custody procedures (`sp_dispatch_blood_transfer`, `sp_receive_blood_transfer`), donor matching (`fn_match_potential_donors`), outbox (`event_outbox`), incidents (`quality_incidents`). |
+| `011_domain_extensions.sql` | Applied | GN divisions, clusters (`blood_bank_clusters`), inter-bank transfers (`blood_bank_transfers`), custody procedures (`sp_dispatch_blood_transfer`, `sp_receive_blood_transfer`), donor matching (`fn_match_potential_donors`), outbox (`event_outbox`), incidents (`quality_incidents`). |
+| `012_hybrid_donor_enrollment.sql` | **New** | Dual-path enrollment: `donors.user_id` made nullable, walk-in origin and provenance fields, `uq_donors_national_id_hash`, `donor_visits`, `donor_account_claims`, `donor_consent_history`, trigger `trg_log_donor_consent_change`, procedures `sp_approve_donor_account_claim` and `sp_reject_donor_account_claim`, view `v_donor_intake_lookup`. |
 
 ---
 
