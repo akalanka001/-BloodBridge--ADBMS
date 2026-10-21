@@ -2,14 +2,23 @@
   "name": "bloodbridge-workspace",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "BloodBridge academic prototype — one-command Docker development",
   "scripts": {
     "dev": "docker compose up --build",
     "start": "docker compose up --build -d",
     "stop": "docker compose down",
     "logs": "docker compose logs -f",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "test:backend": "npm --prefix backend test",
+    "test:frontend": "npm --prefix frontend test",
+    "test:smoke": "node scripts/smoke-check.js",
+    "build": "npm --prefix frontend run build",
+    "lint": "node --check scripts/smoke-check.js scripts/reset-warning.js scripts/migrate.js backend/src/server.js",
+    "ci:check": "npm run lint && npm run test && npm run build && npm run test:smoke",
     "db:psql": "docker compose exec db psql -U bloodbridge -d bloodbridge",
     "db:check": "docker compose exec -T db psql -v ON_ERROR_STOP=1 -U bloodbridge -d bloodbridge -f /workspace/database/migrations/009_verify_advanced_objects.sql",
+    "db:migrate": "node scripts/migrate.js",
     "db:reset": "node scripts/reset-warning.js"
   }
 }

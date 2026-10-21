@@ -1,0 +1,18 @@
+# BloodBridge Code Owners
+# Defines team code review ownership across repository modules.
+
+* @akalanka001 @HajithMohamed
+
+# Database migrations, stored procedures, schema, and warehouse
+/database/ @akalanka001 @HajithMohamed
+
+# Express REST API, routes, and middleware
+/backend/ @akalanka001 @HajithMohamed
+
+# React / Vite responsive web frontend
+/frontend/ @akalanka001 @HajithMohamed
+
+# CI/CD workflows and orchestration
+/.github/ @akalanka001 @HajithMohamed
+/compose.yaml @akalanka001 @HajithMohamed
+/scripts/ @akalanka001 @HajithMohamed

@@ -1,0 +1,176 @@
+name: BloodBridge CI Pipeline
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (reproducible)
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run frontend test suite
+        run: npm test
+        working-directory: frontend
+
+      - name: Verify production build
+        run: npm run build
+        working-directory: frontend
+
+  backend:
+    name: Backend Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies (reproducible)
+        run: npm ci
+        working-directory: backend
+
+      - name: Run authentication and input validation tests
+        run: npm run test:unit
+        working-directory: backend
+        env:
+          JWT_SECRET: ci_test_jwt_secret_with_at_least_32_characters_for_testing
+          NODE_ENV: test
+
+  postgres-integration:
+    name: PostgreSQL Integration & Stored Objects
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: bloodbridge
+          POSTGRES_PASSWORD: ci_test_db_password_123
+          POSTGRES_DB: bloodbridge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bloodbridge -d bloodbridge"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install PostgreSQL client tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Apply schema and advanced SQL migrations
+        env:
+          PGPASSWORD: ci_test_db_password_123
+        run: |
+          echo "Applying 001_schema.sql..."
+          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/001_schema.sql
+
+          echo "Applying 002_seed_reference.sql..."
+          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/002_seed_reference.sql
+
+          echo "Applying 007_advanced_objects.sql..."
+          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/007_advanced_objects.sql
+
+          echo "Applying 010_runtime_privileges.sql..."
+          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/010_runtime_privileges.sql
+
+      - name: Execute database catalog verification
+        env:
+          PGPASSWORD: ci_test_db_password_123
+        run: |
+          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/009_verify_advanced_objects.sql
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Run PostgreSQL behavioral assertions
+        run: npm run test:db
+        working-directory: backend
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: bloodbridge
+          PGPASSWORD: ci_test_db_password_123
+          PGDATABASE: bloodbridge
+          JWT_SECRET: ci_test_jwt_secret_with_at_least_32_characters_for_testing
+          NODE_ENV: test
+          CI: true
+
+  docker-integration:
+    name: Docker Stack & Smoke Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up temporary CI environment
+        run: |
+          cp .env.example .env
+          sed -i 's/REPLACE_WITH_A_LONG_LOCAL_PASSWORD/CiDockerTestPass123!/' .env
+          sed -i 's/REPLACE_WITH_AN_INDEPENDENT_LONG_RANDOM_SECRET/ci_docker_jwt_secret_with_32_chars_minimum/' .env
+
+      - name: Build and start Docker Compose stack
+        run: docker compose up --build -d --wait
+
+      - name: Verify running container health
+        run: docker compose ps
+
+      - name: Seed demo staff and camp fixture
+        run: docker compose exec -e DEMO_PASSWORD=CiDemoStaffPass123! api node scripts/seed-demo-staff.js
+
+      - name: Run automated smoke checks
+        run: node scripts/smoke-check.js
+
+      - name: Capture container diagnostic logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop and clean up containers
+        if: always()
+        run: docker compose down -v

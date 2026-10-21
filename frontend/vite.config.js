@@ -9,4 +9,8 @@ export default defineConfig({
     watch: { usePolling: true },
     proxy: { '/api': { target: 'http://api:4000', changeOrigin: true } },
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
 });

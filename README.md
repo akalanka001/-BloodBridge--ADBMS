@@ -267,7 +267,15 @@ npm run db:psql
 
 These two convenience commands assume the default `POSTGRES_USER=bloodbridge` and `POSTGRES_DB=bloodbridge`. If you changed either in `.env`, use `docker compose exec db sh` and run `psql` with your chosen names inside the container.
 
-### Apply a NEW migration after first startup
+### Apply NEW migrations after first startup (Automatic runner)
+
+```bash
+npm run db:migrate
+```
+
+The migration runner (`scripts/migrate.js`) tracks executed migrations in a `schema_migrations` table, baselines existing installations, and applies pending versioned SQL migrations in transactional order.
+
+Alternatively, to manually execute an individual SQL file directly inside PostgreSQL:
 
 ```bash
 docker compose exec -T db psql -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f /workspace/database/migrations/010_your_new_migration.sql
@@ -284,15 +292,73 @@ npm run dev
 
 `-v` **deletes all local Docker database volumes**. Only use for this disposable academic demo. Never run on databases holding real or important records.
 
-## 10. Verification after startup
+## 10. Automated testing and quality commands
+
+The project includes an automated test and verification suite:
 
 ```bash
-node scripts/smoke-check.js
+# Run all tests (backend + frontend)
+npm run test
+
+# Run backend unit and PostgreSQL integration tests
+npm run test:backend
+
+# Run frontend Vitest component tests
+npm run test:frontend
+
+# Check code syntax across scripts and backend
+npm run lint
+
+# Build frontend production bundle
+npm run build
+
+# Run end-to-end smoke check against active Docker stack
+npm run test:smoke
+
+# Complete local CI check (lint + test + build + smoke)
+npm run ci:check
 ```
 
-Expected: `/health` reports a database connection, `/locations/provinces` contains the sample region codes, `/camps` returns a JSON list (can be empty). Review `docs/DATABASE_WORKFLOW.md` for transactions, views, and stored procedure demos.
+Review `docs/DATABASE_WORKFLOW.md` for transactions, views, and stored procedure demos.
 
-## 11. Six-person sprint breakdown (20–23 October 2026)
+## 11. Git workflow, CI/CD, and collaboration rules
+
+### Integration branch: `dev`
+
+- The shared working integration branch is **`dev`** (do not use `main` or merge unrelated histories).
+- Always branch feature work from `origin/dev`:
+  ```bash
+  git fetch origin
+  git checkout -b feature/your-feature-name origin/dev
+  ```
+- Make focused commits with Conventional Commit messages (`feat:`, `fix:`, `chore:`, `test:`, `docs:`).
+- Open Pull Requests targeting **`dev`**. Never force-push or commit directly to `dev`.
+
+### Continuous Integration (CI)
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs automatically on every push or PR to `dev`:
+1. **Frontend Validation:** `npm ci`, Vitest component tests, Vite production build.
+2. **Backend Validation:** `npm ci`, authentication and input validation test suites (`npm run test:unit`).
+3. **PostgreSQL Integration:** Runs against an isolated `postgres:16-alpine` service container, applies migrations (`001`, `002`, `007`, `010`), verifies object existence (`009`), and executes 8+ behavioral assertions (`npm run test:db`).
+4. **Docker Integration:** Builds application images, runs `docker compose up --build -d --wait`, executes `scripts/smoke-check.js`, and captures logs on failure.
+
+### Continuous Delivery (CD)
+
+On successful commits to `dev`, `.github/workflows/cd.yml`:
+- Builds production-ready Docker images for backend and frontend.
+- Publishes tagged images to GitHub Container Registry (`ghcr.io`):
+  - `ghcr.io/<owner>/<repo>/backend:dev`
+  - `ghcr.io/<owner>/<repo>/frontend:dev`
+- Embedded secrets and private database records are never included in images.
+
+### Pull request checklist
+
+- CI checks pass.
+- At least one team member code review approval.
+- Follows `.github/PULL_REQUEST_TEMPLATE.md`.
+- No `.env` or credentials committed.
+
+## 12. Six-person sprint breakdown (20–23 October 2026)
 
 | Owner | Database/API/Frontend responsibility | Friday evidence |
 |---|---|---|
@@ -305,11 +371,9 @@ Expected: `/health` reports a database connection, `/locations/provinces` contai
 
 **20 Oct**: settle ERD/API naming and boot the stack. **21 Oct**: connect first end-to-end donor/camp/request endpoints. **22 Oct**: finish stock transactions and camp approval. **23 Oct**: freeze features by afternoon; integrate, benchmark, test and document.
 
-Use `main` as protected working integration branch, with short-lived `feature/donors`, `feature/camps`, `feature/hospital`, etc. The database lead approves every migration change. Avoid two people editing `001_schema.sql` simultaneously.
-
 **Assignment warning:** The supplied ADBMS mini-project brief states **at most five group members**. Get explicit lecturer permission if your submission includes six.
 
-## 12. Troubleshooting (Windows-friendly)
+## 13. Troubleshooting (Windows-friendly)
 
 | Symptom | Fix |
 |---|---|
