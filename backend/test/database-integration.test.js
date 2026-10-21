@@ -1,33 +1,17 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import pg from 'pg';
-
-const host = process.env.PGHOST || '127.0.0.1';
-const port = Number(process.env.PGPORT || (process.env.CI ? 5432 : 5433));
-const user = process.env.PGUSER || process.env.POSTGRES_USER || 'bloodbridge';
-const password = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || 'HAzi@1915';
-const database = process.env.PGDATABASE || process.env.POSTGRES_DB || 'bloodbridge';
-
-const testPool = new pg.Pool({
-  host,
-  port,
-  user,
-  password,
-  database,
-  max: 5,
-  connectionTimeoutMillis: 5000,
-});
+import { pool } from '../src/db.js';
 
 describe('PostgreSQL Advanced Concepts & Business Logic Integration', () => {
   let client;
 
   before(async () => {
-    client = await testPool.connect();
+    client = await pool.connect();
   });
 
   after(async () => {
     if (client) client.release();
-    await testPool.end();
+    await pool.end();
   });
 
   it('verifies catalog installation of advanced database objects (views, functions, procedures, triggers)', async () => {
