@@ -29,6 +29,9 @@ const isSupabaseOrRemote = Boolean(
   process.env.PGSSL === 'true'
 );
 
+const defaultHostPort = (host === 'localhost' || host === '127.0.0.1') && !process.env.DOCKER && (process.env.POSTGRES_USER === 'bloodbridge' && !process.env.PGUSER) ? 5433 : 5432;
+const resolvedPort = Number(process.env.PGPORT || defaultHostPort);
+
 const poolConfig = connectionString
   ? {
       connectionString,
@@ -38,7 +41,7 @@ const poolConfig = connectionString
     }
   : {
       host,
-      port: Number(process.env.PGPORT || 5432),
+      port: resolvedPort,
       user: process.env.PGUSER || process.env.POSTGRES_USER || 'postgres',
       password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD,
       database: process.env.PGDATABASE || process.env.POSTGRES_DB || 'bloodbridge',
