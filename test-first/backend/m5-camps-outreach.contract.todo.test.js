@@ -1,0 +1,46 @@
+import { test } from 'node:test';
+// TEST CATALOG ONLY: test.todo is NOT an executed passing test.
+// Replace each test.todo with a real failing behavioral assertion BEFORE writing implementation.
+
+test.todo("M5-001: Camp ends before it starts => CHECK rejects");
+test.todo("M5-002: Camp capacity 0 or negative => CHECK rejects");
+test.todo("M5-003: Unverified or unrelated bank tries approval => Procedure rejects, status PENDING remains");
+test.todo("M5-004: Bank staff approves own verified pending camp => Status APPROVED and audit row");
+test.todo("M5-005: Attempt approval of DRAFT/APPROVED/CANCELLED => Rejected without changing state");
+test.todo("M5-006: Camp start time passed before approval => Reject approval");
+test.todo("M5-007: Pending camp published in public view => Excluded");
+test.todo("M5-008: Approved future camp published => Public view includes venue but no donor records");
+test.todo("M5-009: Duplicate district-wide target with ds_code NULL => Second insert rejected");
+test.todo("M5-010: Target DS not part of target district => FK rejects");
+test.todo("M5-011: Opted-in donor same district/DS => Included in target function");
+test.todo("M5-012: Opted-out donor same area => Excluded immediately");
+test.todo("M5-013: No camp targets defined => Return no targeted donor IDs");
+test.todo("M5-014: Approved upcoming camp has open capacity => One donor registration succeeds");
+test.todo("M5-015: Pending or cancelled camp registration => Trigger rejects");
+test.todo("M5-016: Donor registers same camp twice => Unique constraint rejects or idempotent existing");
+test.todo("M5-017: Camp capacity exactly full => Next insert rejected");
+test.todo("M5-018: Two people try final camp place simultaneously => One succeeds, no overcapacity");
+test.todo("M5-019: Donor cancels registration => Status cancellation and capacity reusable");
+test.todo("M5-020: Re-register cancelled registration => Defined reactivation path, no second unique row");
+test.todo("M5-021: Authorized check-in during time window => One attendance and one check-in persisted");
+test.todo("M5-022: Check-in outside allowed time window => Reject, unchanged registration");
+test.todo("M5-023: Wrong bank scans check-in => Permission denied");
+test.todo("M5-024: Duplicate check-in request => No duplicate check-in; idempotent or 409");
+test.todo("M5-025: Attendance count vs actual donation count => Separate counts and tables");
+test.todo("M5-026: Camp reminder queued before scheduled date => One outbox row per user/camp/reminder kind");
+test.todo("M5-027: Worker claims same job twice concurrently => Only one lease; SKIP LOCKED or alternative");
+test.todo("M5-028: Notification fails delivery => Retry with bounded backoff, do not lose event");
+test.todo("M5-029: Worker crashed during processing => Lease expiry allows safe retry, idempotency prevents duplicate delivery");
+test.todo("M5-030: Donor withdraws opt-in before delivery => Skip delivery and record suppression");
+test.todo("M5-031: District/DS camp filter => Only approved relevant future camps");
+test.todo("M5-032: Create draft bank staff with valid bank ownership => 201 DRAFT");
+test.todo("M5-033: Create draft by donor => 403");
+test.todo("M5-034: Submit draft belonging to own bank => 200 PENDING");
+test.todo("M5-035: Approve unrelated bank camp => 403 and audit unchanged");
+test.todo("M5-036: Register logged-in donor => 201 and own registration");
+test.todo("M5-037: Anonymous POST registration => 401");
+test.todo("M5-038: Get attendee list as donor => 403 and no private list");
+test.todo("M5-039: Check-in as bank staff during allowed window => 200 and status ATTENDED");
+test.todo("M5-040: Cancel approved camp as coordinating staff => 200 CANCELLED, public listing excluded");
+test.todo("M5-051: Draft\u2192Submit\u2192Approve\u2192Public\u2192Register\u2192Check-in => Correct transitions and attendance audit");
+test.todo("M5-052: Cancelled camp hidden and cannot accept new registrations => No invitation or seat granted");
