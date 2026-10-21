@@ -1,7 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pg from '../backend/node_modules/pg/lib/index.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+let pgModule;
+try {
+  pgModule = require('../backend/node_modules/pg');
+} catch {
+  pgModule = require('pg');
+}
+const pg = pgModule.default || pgModule;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

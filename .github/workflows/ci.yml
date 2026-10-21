@@ -97,36 +97,19 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install PostgreSQL client tools
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client
-
-      - name: Apply schema and advanced SQL migrations
-        env:
-          PGPASSWORD: ci_test_db_password_123
-        run: |
-          echo "Applying 001_schema.sql..."
-          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/001_schema.sql
-
-          echo "Applying 002_seed_reference.sql..."
-          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/002_seed_reference.sql
-
-          echo "Applying 007_advanced_objects.sql..."
-          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/007_advanced_objects.sql
-
-          echo "Applying 010_runtime_privileges.sql..."
-          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/010_runtime_privileges.sql
-
-      - name: Execute database catalog verification
-        env:
-          PGPASSWORD: ci_test_db_password_123
-        run: |
-          psql -h 127.0.0.1 -U bloodbridge -d bloodbridge -v ON_ERROR_STOP=1 -f database/migrations/009_verify_advanced_objects.sql
-
       - name: Install backend dependencies
         run: npm ci
         working-directory: backend
+
+      - name: Apply schema and database migrations
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: bloodbridge
+          PGPASSWORD: ci_test_db_password_123
+          PGDATABASE: bloodbridge
+          CI: true
+        run: node scripts/migrate.js
 
       - name: Run PostgreSQL behavioral assertions
         run: npm run test:db
@@ -145,6 +128,9 @@ jobs:
     name: Docker Stack & Smoke Verification
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      DOCKER_BUILDKIT: 1
+      COMPOSE_DOCKER_CLI_BUILD: 1
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
