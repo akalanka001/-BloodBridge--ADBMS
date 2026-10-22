@@ -359,4 +359,146 @@ describe('PostgreSQL Advanced Concepts & Business Logic Integration', () => {
     await client.query('DELETE FROM blood_banks WHERE id = $1', [bank.id]);
     await client.query('DELETE FROM locations WHERE id = $1', [loc.id]);
   });
+
+  it('executes atomic inter-bank transfer dispatch and receipt via sp_dispatch_blood_transfer and sp_receive_blood_transfer', async () => {
+    const uid = Math.random().toString(36).slice(2);
+    let loc1, loc2, bank1, bank2, staff1, staff2, donorUser, donor, donation, unit, transfer;
+
+    try {
+      // 1. Setup 2 banks, staff, donor, and a released blood unit at bank 1
+      loc1 = (await client.query("INSERT INTO locations(district_code, town) VALUES ('CO', 'Bank 1 Town') RETURNING id")).rows[0];
+      loc2 = (await client.query("INSERT INTO locations(district_code, town) VALUES ('GA', 'Bank 2 Town') RETURNING id")).rows[0];
+
+      bank1 = (await client.query("INSERT INTO blood_banks(name, location_id, is_verified) VALUES ('Transfer Source Bank', $1, true) RETURNING id", [loc1.id])).rows[0];
+      bank2 = (await client.query("INSERT INTO blood_banks(name, location_id, is_verified) VALUES ('Transfer Dest Bank', $1, true) RETURNING id", [loc2.id])).rows[0];
+
+      staff1 = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Staff 1', 'staff1-${uid}@test', 'h', 'BANK_STAFF') RETURNING id`)).rows[0];
+      staff2 = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Staff 2', 'staff2-${uid}@test', 'h', 'BANK_STAFF') RETURNING id`)).rows[0];
+      await client.query('INSERT INTO staff_memberships(user_id, blood_bank_id, is_active) VALUES ($1, $2, true)', [staff1.id, bank1.id]);
+      await client.query('INSERT INTO staff_memberships(user_id, blood_bank_id, is_active) VALUES ($1, $2, true)', [staff2.id, bank2.id]);
+      donorUser = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Donor Transfer', 'donor-${uid}@test', 'h', 'DONOR') RETURNING id`)).rows[0];
+      donor = (await client.query("INSERT INTO donors(user_id, district_code, blood_type_code) VALUES ($1, 'CO', 'O-') RETURNING id", [donorUser.id])).rows[0];
+      donation = (await client.query("INSERT INTO donations(donor_id, blood_bank_id, collected_at, process_status) VALUES ($1, $2, now() - interval '2 days', 'PROCESSED') RETURNING id", [donor.id, bank1.id])).rows[0];
+
+      unit = (await client.query(
+        `INSERT INTO blood_units(donation_id, blood_bank_id, blood_type_code, component_code, collected_at, expires_at, release_status, inventory_status, released_by)
+         VALUES ($1, $2, 'O-', 'RBC', now() - interval '2 days', now() + interval '30 days', 'RELEASED', 'IN_STOCK', $3) RETURNING id`,
+        [donation.id, bank1.id, staff1.id]
+      )).rows[0];
+
+      // 2. Create transfer request and attach unit
+      transfer = (await client.query(
+        `INSERT INTO blood_bank_transfers(transfer_code, source_bank_id, target_bank_id, status, requested_by)
+         VALUES ($1, $2, $3, 'REQUESTED', $4) RETURNING id`,
+        [`TRF-${uid}`, bank1.id, bank2.id, staff2.id]
+      )).rows[0];
+
+      await client.query('INSERT INTO transfer_units(transfer_id, blood_unit_id) VALUES ($1, $2)', [transfer.id, unit.id]);
+
+      // 3. Dispatch transfer
+      await client.query('CALL sp_dispatch_blood_transfer($1, $2)', [transfer.id, staff1.id]);
+
+      const unitInTransit = (await client.query('SELECT inventory_status, blood_bank_id FROM blood_units WHERE id = $1', [unit.id])).rows[0];
+      assert.equal(unitInTransit.inventory_status, 'IN_TRANSIT', 'Unit must be in IN_TRANSIT status');
+      assert.equal(unitInTransit.blood_bank_id, bank1.id, 'Unit remains registered to source bank during transit');
+
+      const transferDispatched = (await client.query('SELECT status, dispatched_by FROM blood_bank_transfers WHERE id = $1', [transfer.id])).rows[0];
+      assert.equal(transferDispatched.status, 'IN_TRANSIT');
+      assert.equal(transferDispatched.dispatched_by, staff1.id);
+
+      // Verify outbox entry created for Socket.io and notification services
+      const outboxDispatch = (await client.query("SELECT event_type FROM event_outbox WHERE aggregate_id = $1 AND event_type = 'TRANSFER_DISPATCHED'", [transfer.id])).rows[0];
+      assert.ok(outboxDispatch, 'Outbox event TRANSFER_DISPATCHED must be recorded');
+
+      // 4. Receive transfer at destination bank (using reconciled 3-parameter procedure)
+      await client.query('CALL sp_receive_blood_transfer($1, $2, $3)', [transfer.id, staff2.id, 'Routine receipt in good condition']);
+
+      const unitReceived = (await client.query('SELECT inventory_status, blood_bank_id FROM blood_units WHERE id = $1', [unit.id])).rows[0];
+      assert.equal(unitReceived.inventory_status, 'IN_STOCK', 'Unit must return to IN_STOCK upon receipt');
+      assert.equal(unitReceived.blood_bank_id, bank2.id, 'Unit custody must be reassigned to target bank');
+
+      const transferReceived = (await client.query('SELECT status, received_by FROM blood_bank_transfers WHERE id = $1', [transfer.id])).rows[0];
+      assert.equal(transferReceived.status, 'RECEIVED');
+      assert.equal(transferReceived.received_by, staff2.id);
+    } finally {
+      // Clean up safely
+      if (transfer) {
+        await client.query('DELETE FROM event_outbox WHERE aggregate_id = $1', [transfer.id]);
+        await client.query('DELETE FROM transfer_units WHERE transfer_id = $1', [transfer.id]);
+        await client.query('DELETE FROM blood_bank_transfers WHERE id = $1', [transfer.id]);
+      }
+      if (unit) {
+        await client.query('DELETE FROM inventory_movements WHERE blood_unit_id = $1', [unit.id]);
+        await client.query('DELETE FROM blood_units WHERE id = $1', [unit.id]);
+      }
+      if (donation) await client.query('DELETE FROM donations WHERE id = $1', [donation.id]);
+      if (donor) await client.query('DELETE FROM donors WHERE id = $1', [donor.id]);
+      const userIds = [staff1?.id, staff2?.id, donorUser?.id].filter(Boolean);
+      if (userIds.length) {
+        await client.query('DELETE FROM audit_logs WHERE actor_id = ANY($1)', [userIds]);
+        await client.query('DELETE FROM staff_memberships WHERE user_id = ANY($1)', [userIds]);
+        await client.query('DELETE FROM users WHERE id = ANY($1)', [userIds]);
+      }
+
+      const bankIds = [bank1?.id, bank2?.id].filter(Boolean);
+      if (bankIds.length) {
+        await client.query('DELETE FROM staff_memberships WHERE blood_bank_id = ANY($1)', [bankIds]);
+        await client.query('DELETE FROM blood_banks WHERE id = ANY($1)', [bankIds]);
+      }
+      const locIds = [loc1?.id, loc2?.id].filter(Boolean);
+      if (locIds.length) await client.query('DELETE FROM locations WHERE id = ANY($1)', [locIds]);
+    }
+  });
+
+
+  it('matches potential donors while excluding deferred and recently donated candidates via fn_match_potential_donors', async () => {
+    const uid = Math.random().toString(36).slice(2);
+    let userA, userB, userC, staff, donorA, donorB, donorC, loc, bank, donationB, deferralC;
+
+    try {
+      // 1. Create 3 donors in Colombo (CO):
+      userA = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Donor A', 'donorA-${uid}@test', 'h', 'DONOR') RETURNING id`)).rows[0];
+      userB = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Donor B', 'donorB-${uid}@test', 'h', 'DONOR') RETURNING id`)).rows[0];
+      userC = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Donor C', 'donorC-${uid}@test', 'h', 'DONOR') RETURNING id`)).rows[0];
+      staff = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Staff Match', 'staff-${uid}@test', 'h', 'BANK_STAFF') RETURNING id`)).rows[0];
+
+      donorA = (await client.query("INSERT INTO donors(user_id, district_code, blood_type_code, available_for_contact) VALUES ($1, 'CO', 'B+', true) RETURNING id", [userA.id])).rows[0];
+      donorB = (await client.query("INSERT INTO donors(user_id, district_code, blood_type_code, available_for_contact) VALUES ($1, 'CO', 'B+', true) RETURNING id", [userB.id])).rows[0];
+      donorC = (await client.query("INSERT INTO donors(user_id, district_code, blood_type_code, available_for_contact) VALUES ($1, 'CO', 'B+', true) RETURNING id", [userC.id])).rows[0];
+
+      loc = (await client.query("INSERT INTO locations(district_code, town) VALUES ('CO', 'Match Town') RETURNING id")).rows[0];
+      bank = (await client.query("INSERT INTO blood_banks(name, location_id, is_verified) VALUES ('Match Bank', $1, true) RETURNING id", [loc.id])).rows[0];
+
+      // Donor B donated 30 days ago (within 120-day interval -> excluded)
+      donationB = (await client.query("INSERT INTO donations(donor_id, blood_bank_id, collected_at, process_status) VALUES ($1, $2, now() - interval '30 days', 'PROCESSED') RETURNING id", [donorB.id, bank.id])).rows[0];
+
+      // Donor C has active temporary deferral for low hemoglobin until next month
+      deferralC = (await client.query(
+        `INSERT INTO donor_assessments(donor_id, assessed_by, status, deferral_reason, deferral_until)
+         VALUES ($1, $2, 'TEMPORARY_DEFERRAL', 'Low hemoglobin 11.2 g/dL', CURRENT_DATE + interval '30 days') RETURNING id`,
+        [donorC.id, staff.id]
+      )).rows[0];
+
+      // 2. Call fn_match_potential_donors for B+ in Colombo (CO) with 120-day interval
+      const { rows: matches } = await client.query(
+        "SELECT donor_id FROM fn_match_potential_donors('B+', 'CO', NULL, 120)"
+      );
+
+      const matchedIds = matches.map((m) => m.donor_id);
+      assert.ok(matchedIds.includes(donorA.id), 'Eligible Donor A must be returned in candidate matches');
+      assert.ok(!matchedIds.includes(donorB.id), 'Recent Donor B (30 days ago) must be excluded under 120-day rule');
+      assert.ok(!matchedIds.includes(donorC.id), 'Deferred Donor C must be excluded from candidate matches');
+    } finally {
+      if (deferralC) await client.query('DELETE FROM donor_assessments WHERE id = $1', [deferralC.id]);
+      if (donationB) await client.query('DELETE FROM donations WHERE id = $1', [donationB.id]);
+      const donorIds = [donorA?.id, donorB?.id, donorC?.id].filter(Boolean);
+      if (donorIds.length) await client.query('DELETE FROM donors WHERE id = ANY($1)', [donorIds]);
+      const userIds = [userA?.id, userB?.id, userC?.id, staff?.id].filter(Boolean);
+      if (userIds.length) await client.query('DELETE FROM users WHERE id = ANY($1)', [userIds]);
+      if (bank) await client.query('DELETE FROM blood_banks WHERE id = $1', [bank.id]);
+      if (loc) await client.query('DELETE FROM locations WHERE id = $1', [loc.id]);
+    }
+  });
 });
+
+

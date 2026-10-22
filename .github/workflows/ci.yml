@@ -111,8 +111,8 @@ jobs:
           CI: true
         run: node scripts/migrate.js
 
-      - name: Run PostgreSQL behavioral assertions
-        run: npm run test:db
+      - name: Run full PostgreSQL integration, intake, and regression test suite
+        run: npm test
         working-directory: backend
         env:
           PGHOST: 127.0.0.1
@@ -121,6 +121,7 @@ jobs:
           PGPASSWORD: ci_test_db_password_123
           PGDATABASE: bloodbridge
           JWT_SECRET: ci_test_jwt_secret_with_at_least_32_characters_for_testing
+          NIC_HMAC_SECRET: ci_test_nic_hmac_secret_with_at_least_32_characters
           NODE_ENV: test
           CI: true
 

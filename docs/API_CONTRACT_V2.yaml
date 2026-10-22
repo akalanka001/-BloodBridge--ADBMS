@@ -1,0 +1,591 @@
+openapi: 3.0.3
+info:
+  title: BloodBridge Core & Domain Extensions API Contract (v2)
+  version: 2.0.0
+  description: >
+    Comprehensive OpenAPI specification for the BloodBridge Sri Lanka blood-donation
+    and emergency request coordination academic prototype. Fully reconciled with
+    the 6 team member modules, database v2 domain extensions, and real-time Socket.io events.
+servers:
+  - url: /api/v1
+    description: BloodBridge local API gateway
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: integer
+        districtCode:
+          type: string
+        dsCode:
+          type: string
+        gnCode:
+          type: string
+        town:
+          type: string
+        addressLine:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+
+    DonorProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        bloodTypeCode:
+          type: string
+          enum: ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+']
+        districtCode:
+          type: string
+        dsCode:
+          type: string
+        availableForContact:
+          type: boolean
+        campNotificationsOptIn:
+          type: boolean
+
+    BloodTransfer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transferCode:
+          type: string
+        sourceBankId:
+          type: integer
+        targetBankId:
+          type: integer
+        status:
+          type: string
+          enum: [REQUESTED, APPROVED, DISPATCHED, IN_TRANSIT, RECEIVED, CANCELLED]
+        unitCount:
+          type: integer
+        dispatchedAt:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+
+    BloodRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        hospitalId:
+          type: integer
+        urgency:
+          type: string
+          enum: [ROUTINE, URGENT, CRITICAL]
+        status:
+          type: string
+          enum: [OPEN, PARTIALLY_FILLED, FULFILLED, CANCELLED]
+        neededBy:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              bloodTypeCode:
+                type: string
+              componentCode:
+                type: string
+              unitsRequested:
+                type: integer
+
+    DonationCamp:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        organizerId:
+          type: integer
+        bloodBankId:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+        registeredCount:
+          type: integer
+        status:
+          type: string
+          enum: [DRAFT, PENDING, APPROVED, REJECTED, CANCELLED, COMPLETED]
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new donor user (M1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, email, password, districtCode]
+              properties:
+                fullName: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10 }
+                phone: { type: string }
+                bloodTypeCode: { type: string }
+                districtCode: { type: string }
+                dsCode: { type: string }
+      responses:
+        201:
+          description: Donor successfully registered
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        409:
+          description: Email already registered
+
+  /auth/login:
+    post:
+      summary: User login (M1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        200:
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { type: object }
+        401:
+          description: Invalid email or password
+
+  /locations/provinces:
+    get:
+      summary: List all administrative provinces (M1)
+      responses:
+        200:
+          description: Array of provinces
+
+  /locations/districts:
+    get:
+      summary: List districts, optionally filtered by provinceCode (M1)
+      parameters:
+        - in: query
+          name: provinceCode
+          schema: { type: string }
+      responses:
+        200:
+          description: Array of districts
+
+  /locations/ds-divisions:
+    get:
+      summary: List DS divisions filtered by districtCode (M1)
+      parameters:
+        - in: query
+          name: districtCode
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Array of DS divisions
+
+  /donors/me:
+    get:
+      summary: Get authenticated donor profile (M2)
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: Donor profile
+    patch:
+      summary: Update donor preferences and contact availability (M2)
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                availableForContact: { type: boolean }
+                campNotificationsOptIn: { type: boolean }
+                emergencyAppealOptIn: { type: boolean }
+      responses:
+        200:
+          description: Preferences updated
+
+  /donors/me/link-claims:
+    post:
+      summary: Submit claim to link existing offline donor record (M2)
+      security: [{ BearerAuth: [] }]
+      description: Allows an online donor to claim their historical offline donor record.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [donorId]
+              properties:
+                donorId: { type: string, format: uuid }
+                verificationNotes: { type: string }
+      responses:
+        201:
+          description: Claim submitted for administrative review
+
+  /donors/me/visits:
+    get:
+      summary: Get personal donor check-in and visit history (M2)
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: List of visits and associated clinical assessment outcomes
+
+  /donors/me/donations:
+    get:
+      summary: Get personal verified completed donations (M2)
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: List of completed donations with blood bank details
+
+  /donor-intake/lookup:
+    post:
+      summary: Privacy-preserving donor search by staff (M4)
+      security: [{ BearerAuth: [] }]
+      description: Searches donor registry via phone, full name, or hashed national ID.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nationalId: { type: string }
+                phone: { type: string }
+                fullName: { type: string }
+      responses:
+        200:
+          description: Search results from v_donor_intake_lookup
+
+  /donor-intake/walk-ins:
+    post:
+      summary: Register staff-assisted walk-in donor without user account (M4)
+      security: [{ BearerAuth: [] }]
+      description: Enrolls a walk-in donor with user_id = NULL. Zero fake emails or default passwords.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, phone, districtCode]
+              properties:
+                fullName: { type: string }
+                phone: { type: string }
+                email: { type: string }
+                nationalId: { type: string }
+                bloodTypeCode: { type: string }
+                districtCode: { type: string }
+                dsCode: { type: string }
+                bloodBankId: { type: integer }
+                campId: { type: string, format: uuid }
+      responses:
+        201:
+          description: Walk-in donor enrolled
+
+  /donor-intake/visits:
+    post:
+      summary: Record donor check-in visit (M4)
+      security: [{ BearerAuth: [] }]
+      description: Creates an in-person visit record. Does not create a donation automatically.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [donorId]
+              properties:
+                donorId: { type: string, format: uuid }
+                bloodBankId: { type: integer }
+                campId: { type: string, format: uuid }
+                purpose: { type: string, enum: [DONATION, CONSULTATION, RETEST] }
+      responses:
+        201:
+          description: Visit created
+
+  /donor-intake/visits/{id}/assessments:
+    post:
+      summary: Record authorized clinical assessment (M4)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [PASSED, TEMPORARY_DEFERRAL, PERMANENT_DEFERRAL] }
+                hemoglobin_g_dl: { type: number }
+                weight_kg: { type: number }
+                deferralReason: { type: string }
+                deferralUntil: { type: string, format: date }
+      responses:
+        201:
+          description: Assessment recorded and visit status updated
+
+  /admin/donor-link-claims:
+    get:
+      summary: List pending donor account link claims for admin review (M1/M2)
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: List of pending claims
+
+  /admin/donor-link-claims/{id}/approve:
+    post:
+      summary: Atomically approve claim via sp_approve_donor_account_claim (M1/M2)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          description: Claim approved and donor record linked
+
+  /admin/donor-link-claims/{id}/reject:
+    post:
+      summary: Reject claim via sp_reject_donor_account_claim (M1/M2)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        200:
+          description: Claim rejected
+
+  /donors/potential-matches:
+    get:
+      summary: Search potential donors using fn_match_potential_donors (M2)
+      security: [{ BearerAuth: [] }]
+      description: Restricted to BANK_STAFF and ADMIN. Excludes deferred donors.
+      parameters:
+        - in: query
+          name: bloodTypeCode
+          schema: { type: string }
+        - in: query
+          name: districtCode
+          schema: { type: string }
+        - in: query
+          name: dsCode
+          schema: { type: string }
+      responses:
+        200:
+          description: Candidate matches (sensitive contact details masked until outreach)
+        403:
+          description: Forbidden for non-staff
+
+  /requests:
+    get:
+      summary: List blood requests for user's assigned hospital (M3)
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: List of blood requests
+    post:
+      summary: Create emergency blood request with multiple items (M3)
+      security: [{ BearerAuth: [] }]
+      description: Emits emergency:broadcast via Socket.io if urgency is CRITICAL/URGENT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hospitalId, urgency, neededBy, items]
+              properties:
+                hospitalId: { type: integer }
+                urgency: { type: string, enum: [ROUTINE, URGENT, CRITICAL] }
+                neededBy: { type: string, format: date-time }
+                notes: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [bloodTypeCode, componentCode, unitsRequested]
+                    properties:
+                      bloodTypeCode: { type: string }
+                      componentCode: { type: string }
+                      unitsRequested: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        201:
+          description: Request created
+        403:
+          description: User not assigned to requested hospital
+
+  /transfers:
+    get:
+      summary: List inter-bank transfers (M4)
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: List of transfers
+    post:
+      summary: Initiate an inter-bank transfer request (M4)
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceBankId, targetBankId, bloodUnitIds]
+              properties:
+                sourceBankId: { type: integer }
+                targetBankId: { type: integer }
+                bloodUnitIds: { type: array, items: { type: string, format: uuid } }
+      responses:
+        201:
+          description: Transfer created
+
+  /transfers/{id}/dispatch:
+    post:
+      summary: Dispatch transfer via sp_dispatch_blood_transfer (M4)
+      security: [{ BearerAuth: [] }]
+      description: Atomically updates unit inventory_status to IN_TRANSIT. Emits transfer:status_update.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          description: Transfer dispatched
+        409:
+          description: Units not eligible or transfer state conflict
+
+  /transfers/{id}/receive:
+    post:
+      summary: Receive transfer via sp_receive_blood_transfer (M4)
+      security: [{ BearerAuth: [] }]
+      description: Reassigns custody to target bank and returns units to IN_STOCK.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          description: Transfer received
+
+  /inventory/stock:
+    get:
+      summary: Get available blood stock summary (M4)
+      responses:
+        200:
+          description: Available stock grouped by bank, blood type, and component
+
+  /camps:
+    get:
+      summary: Public list of approved donation camps (M5)
+      parameters:
+        - in: query
+          name: districtCode
+          schema: { type: string }
+      responses:
+        200:
+          description: List of public donation camps
+
+  /camps/{id}/registrations:
+    post:
+      summary: Register authenticated donor for a donation camp (M5)
+      security: [{ BearerAuth: [] }]
+      description: Enforces capacity via trg_check_camp_registration. Emits camp:capacity_update via Socket.io.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        201:
+          description: Registered successfully
+        409:
+          description: Camp at full capacity or already registered
+
+  /analytics/demand-summary:
+    get:
+      summary: Multi-dimensional demand analytics (M6)
+      security: [{ BearerAuth: [] }]
+      description: Restricted to ADMIN. Reads from warehouse star schema / OLTP views.
+      responses:
+        200:
+          description: Aggregate analytics summary
