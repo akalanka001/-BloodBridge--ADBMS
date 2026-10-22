@@ -40,11 +40,21 @@ describe('BloodBridge Hybrid Donor Registration & Intake Integration', () => {
   after(async () => {
     if (client) {
       try {
-        // Cleanup test-created records
         if (onlineDonorId || walkInDonorId) {
           const donorIds = [onlineDonorId, walkInDonorId].filter(Boolean);
-          await client.query('DELETE FROM event_outbox WHERE aggregate_type IN (\'donors\', \'donations\')');
-          await client.query('DELETE FROM audit_logs WHERE entity_name = \'donor_account_claims\'');
+          const donorIdStrings = donorIds.map((id) => id.toString());
+          await client.query(
+            `DELETE FROM event_outbox
+             WHERE (aggregate_type = 'donors' AND aggregate_id = ANY($1))
+                OR (aggregate_type = 'donations' AND aggregate_id IN (SELECT id::text FROM donations WHERE donor_id = ANY($2)))`,
+            [donorIdStrings, donorIds],
+          );
+          await client.query(
+            `DELETE FROM audit_logs
+             WHERE entity_name = 'donor_account_claims'
+               AND entity_id IN (SELECT id::text FROM donor_account_claims WHERE donor_id = ANY($1))`,
+            [donorIds],
+          );
           await client.query('DELETE FROM donor_account_claims WHERE donor_id = ANY($1)', [donorIds]);
           await client.query('DELETE FROM donations WHERE donor_id = ANY($1)', [donorIds]);
           await client.query('DELETE FROM donor_assessments WHERE donor_id = ANY($1)', [donorIds]);
@@ -54,6 +64,7 @@ describe('BloodBridge Hybrid Donor Registration & Intake Integration', () => {
           await client.query('DELETE FROM donors WHERE id = ANY($1)', [donorIds]);
         }
         await client.query('DELETE FROM staff_memberships WHERE user_id = $1', [bankStaffUserId]);
+        await client.query('DELETE FROM audit_logs WHERE actor_id = $1', [bankStaffUserId]);
         await client.query('DELETE FROM users WHERE email IN (\'staff.intake.test@example.com\', \'online.hybrid.test@example.com\', \'online.claimant.test@example.com\')');
       } catch (err) {
         console.error('Test cleanup error:', err);
@@ -193,7 +204,8 @@ describe('BloodBridge Hybrid Donor Registration & Intake Integration', () => {
       bloodBankId: testBankId,
       bloodTypeCode: 'A+',
       collectedVolumeMl: 450,
-    });
+      collectorId: bankStaffUserId,
+    }, bankStaffUserId);
 
     assert.ok(donation.id);
     assert.equal(donation.process_status, 'COLLECTED');

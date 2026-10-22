@@ -28,6 +28,11 @@ export function CampCard({ camp }) {
         <Hospital size={15} />
         {camp.coordinating_blood_bank}
       </p>
+      {(camp.target_donors || camp.capacity) ? (
+        <p className="camp-capacity-stat" style={{ fontSize: '0.85rem', color: '#475569', margin: '4px 0' }}>
+          Registered: <strong>{camp.registered_donors ?? camp.registered_count ?? 0}</strong> / Capacity: <strong>{camp.target_donors || camp.capacity}</strong>
+        </p>
+      ) : null}
       <button className="text-link" onClick={() => navigate('login')}>
         Sign in to register <ArrowRight size={16} />
       </button>

@@ -16,8 +16,8 @@ export const walkInRegistrationSchema = z.object({
   bloodTypeCode: z.enum(['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+']).nullable().optional(),
   districtCode: z.string().trim().min(1).max(20),
   dsCode: z.string().trim().max(20).nullable().optional(),
-  availableForContact: z.boolean().default(true),
-  campNotificationsOptIn: z.boolean().default(true),
+  availableForContact: z.boolean().default(false),
+  campNotificationsOptIn: z.boolean().default(false),
   bloodBankId: z.number().int().positive().optional(),
   campId: z.string().uuid().optional(),
 }).refine(data => data.bloodBankId || data.campId, {

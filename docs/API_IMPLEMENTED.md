@@ -26,6 +26,17 @@
 | POST | `/requests` | Hospital staff | Transactionally inserts header and multiple line items |
 | GET | `/inventory/summary` | Hospital/bank/admin | Reads `v_available_blood_stock`, bank staff scoped to assigned bank(s) |
 | POST | `/inventory/reservations` | Bank staff | Calls transaction-safe `fn_reserve_blood_unit`, trigger writes movement |
+| POST | `/donor-intake/lookup` | Bank staff | Privacy-preserving keyed HMAC donor search (NIC, phone, name) |
+| POST | `/donor-intake/walk-ins` | Bank staff | Staff-assisted walk-in donor enrollment without online credentials; explicit opt-in consent |
+| POST | `/donor-intake/visits` | Bank staff | Register in-person donor visit (CHECKED_IN) tied to staff's assigned bank |
+| POST | `/donor-intake/visits/:id/assessment` | Bank staff | Record clinical assessment (PASSED, DEFERRED) with medical staff authorization |
+| POST | `/donor-intake/collections` | Bank staff | Atomic donation collection locked to passed visit; prevents duplicate collections |
+| POST | `/donors/me/link-claims` | Donor | Submit identity claim linking offline walk-in record to verified online account |
+| GET | `/admin/donor-link-claims` | Admin | List pending identity link claims requiring administrative review |
+| POST | `/admin/donor-link-claims/:id/approve` | Admin | Atomically reconcile online account with walk-in donor record preserving history |
+| POST | `/admin/donor-link-claims/:id/reject` | Admin | Reject invalid or fraudulent claim with logged audit reason |
+| POST | `/transfers/:id/dispatch` | Bank staff | All-or-nothing atomic unit validation and dispatch by authorized source-bank staff |
+| POST | `/transfers/:id/receive` | Bank staff | Acknowledge receipt with condition notes (3-arg `sp_receive_blood_transfer`) by destination staff |
 
 ## Example requests
 

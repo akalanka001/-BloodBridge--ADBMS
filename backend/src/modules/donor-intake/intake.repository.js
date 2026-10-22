@@ -80,8 +80,8 @@ export class IntakeRepository {
           data.bloodTypeCode || null,
           data.districtCode,
           data.dsCode || null,
-          data.availableForContact ?? true,
-          data.campNotificationsOptIn ?? true,
+          data.availableForContact ?? false,
+          data.campNotificationsOptIn ?? false,
           origin,
           enrolledByUserId,
           data.bloodBankId || null,
@@ -90,8 +90,8 @@ export class IntakeRepository {
       );
       const donor = rows[0];
 
-      const contactAllowed = data.availableForContact ?? true;
-      const campOptIn = data.campNotificationsOptIn ?? true;
+      const contactAllowed = data.availableForContact ?? false;
+      const campOptIn = data.campNotificationsOptIn ?? false;
 
       // Insert consent record
       await client.query(
@@ -141,24 +141,10 @@ export class IntakeRepository {
 
   async recordAssessment(visitId, assessedBy, data) {
     return inTransaction(async (client) => {
-      // Lock visit
-      const { rows: visitRows } = await client.query(
-        'SELECT id, donor_id, status FROM donor_visits WHERE id = $1 FOR UPDATE',
-        [visitId],
-      );
-      if (!visitRows[0]) return null;
-      const visit = visitRows[0];
-
-      // Insert assessment
-      const { rows: assessRows } = await client.query(
-        `INSERT INTO donor_assessments (
-           donor_id, assessed_by, hemoglobin_g_dl, weight_kg, status,
-           deferral_reason, deferral_until, notes, visit_id
-         )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING id, donor_id, status, deferral_reason, deferral_until, assessed_at`,
+      const { rows } = await client.query(
+        `CALL sp_record_donor_assessment($1, $2, $3, $4, $5, $6, $7, $8, NULL)`,
         [
-          visit.donor_id,
+          visitId,
           assessedBy,
           data.hemoglobin_g_dl || null,
           data.weight_kg || null,
@@ -166,65 +152,37 @@ export class IntakeRepository {
           data.deferralReason || null,
           data.deferralUntil || null,
           data.notes || null,
-          visitId,
         ],
       );
-
-      // Update visit status
-      const newVisitStatus = data.status === 'PASSED' ? 'ASSESSMENT_PENDING' : 'DEFERRED';
-      await client.query(
-        'UPDATE donor_visits SET status = $1 WHERE id = $2',
-        [newVisitStatus, visitId],
+      const assessmentId = rows[0]?.p_assessment_id;
+      const { rows: resultRows } = await client.query(
+        'SELECT * FROM donor_assessments WHERE id = $1',
+        [assessmentId],
       );
-
-      return assessRows[0];
+      return resultRows[0] || { id: assessmentId, status: data.status, visit_id: visitId };
     });
   }
 
-  async recordCollection({ visitId, donorId, bloodBankId, campId, bloodTypeCode, collectedVolumeMl }) {
+  async recordCollection({ visitId, donorId, bloodBankId, campId, bloodTypeCode, collectedVolumeMl }, collectorId) {
     return inTransaction(async (client) => {
-      // Ensure visit has passed assessment
-      const { rows: assessRows } = await client.query(
-        `SELECT id, status FROM donor_assessments
-         WHERE visit_id = $1 AND donor_id = $2 AND status = 'PASSED'`,
-        [visitId, donorId],
-      );
-      if (assessRows.length === 0) {
-        throw new Error('Cannot record donation: Donor has no passing assessment for this visit');
-      }
-
-      // Record donation
-      const { rows: donRows } = await client.query(
-        `INSERT INTO donations (donor_id, blood_bank_id, camp_id, collected_at, collected_volume_ml, process_status)
-         VALUES ($1, $2, $3, now(), $4, 'COLLECTED')
-         RETURNING id, donor_id, blood_bank_id, collected_at, collected_volume_ml, process_status`,
-        [donorId, bloodBankId, campId || null, collectedVolumeMl],
-      );
-      const donation = donRows[0];
-
-      // Update visit status
-      await client.query(
-        `UPDATE donor_visits SET status = 'COLLECTION_COMPLETED' WHERE id = $1`,
-        [visitId],
-      );
-
-      // Log outbox event
-      await client.query(
-        `INSERT INTO event_outbox (event_type, aggregate_type, aggregate_id, payload)
-         VALUES ('DONATION_COLLECTED', 'donations', $1, $2)`,
+      const { rows } = await client.query(
+        `CALL sp_record_donation_collection($1, $2, $3, $4, $5, $6, $7, NULL)`,
         [
-          donation.id,
-          JSON.stringify({
-            donationId: donation.id,
-            donorId,
-            bloodBankId,
-            campId: campId || null,
-            bloodTypeCode,
-          }),
+          visitId,
+          donorId,
+          bloodBankId,
+          campId || null,
+          bloodTypeCode || null,
+          collectedVolumeMl || 450,
+          collectorId,
         ],
       );
-
-      return donation;
+      const donationId = rows[0]?.p_donation_id;
+      const { rows: donRows } = await client.query(
+        'SELECT id, donor_id, blood_bank_id, collected_at, collected_volume_ml, process_status FROM donations WHERE id = $1',
+        [donationId],
+      );
+      return donRows[0] || { id: donationId, donor_id: donorId, blood_bank_id: bloodBankId };
     });
   }
 }

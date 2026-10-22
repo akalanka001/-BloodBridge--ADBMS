@@ -53,7 +53,17 @@ export default function App() {
       const socket = getSocket(session.token);
       socket.on('camp:capacity_update', (data) => {
         setCamps((prev) =>
-          prev.map((c) => (c.camp_id === data.campId ? { ...c, capacity: data.registeredCount } : c)),
+          prev.map((c) =>
+            (c.camp_id === data.campId || c.id === data.campId)
+              ? {
+                  ...c,
+                  registered_count: data.registeredCount,
+                  registered_donors: data.registeredCount,
+                  capacity: data.maxCapacity || c.capacity,
+                  target_donors: data.maxCapacity || c.target_donors,
+                }
+              : c,
+          ),
         );
       });
       return () => {

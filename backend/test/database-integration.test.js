@@ -374,6 +374,8 @@ describe('PostgreSQL Advanced Concepts & Business Logic Integration', () => {
 
       staff1 = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Staff 1', 'staff1-${uid}@test', 'h', 'BANK_STAFF') RETURNING id`)).rows[0];
       staff2 = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Staff 2', 'staff2-${uid}@test', 'h', 'BANK_STAFF') RETURNING id`)).rows[0];
+      await client.query('INSERT INTO staff_memberships(user_id, blood_bank_id, is_active) VALUES ($1, $2, true)', [staff1.id, bank1.id]);
+      await client.query('INSERT INTO staff_memberships(user_id, blood_bank_id, is_active) VALUES ($1, $2, true)', [staff2.id, bank2.id]);
       donorUser = (await client.query(`INSERT INTO users(full_name, email, password_hash, role) VALUES ('Donor Transfer', 'donor-${uid}@test', 'h', 'DONOR') RETURNING id`)).rows[0];
       donor = (await client.query("INSERT INTO donors(user_id, district_code, blood_type_code) VALUES ($1, 'CO', 'O-') RETURNING id", [donorUser.id])).rows[0];
       donation = (await client.query("INSERT INTO donations(donor_id, blood_bank_id, collected_at, process_status) VALUES ($1, $2, now() - interval '2 days', 'PROCESSED') RETURNING id", [donor.id, bank1.id])).rows[0];
@@ -408,8 +410,8 @@ describe('PostgreSQL Advanced Concepts & Business Logic Integration', () => {
       const outboxDispatch = (await client.query("SELECT event_type FROM event_outbox WHERE aggregate_id = $1 AND event_type = 'TRANSFER_DISPATCHED'", [transfer.id])).rows[0];
       assert.ok(outboxDispatch, 'Outbox event TRANSFER_DISPATCHED must be recorded');
 
-      // 4. Receive transfer at destination bank
-      await client.query('CALL sp_receive_blood_transfer($1, $2)', [transfer.id, staff2.id]);
+      // 4. Receive transfer at destination bank (using reconciled 3-parameter procedure)
+      await client.query('CALL sp_receive_blood_transfer($1, $2, $3)', [transfer.id, staff2.id, 'Routine receipt in good condition']);
 
       const unitReceived = (await client.query('SELECT inventory_status, blood_bank_id FROM blood_units WHERE id = $1', [unit.id])).rows[0];
       assert.equal(unitReceived.inventory_status, 'IN_STOCK', 'Unit must return to IN_STOCK upon receipt');
@@ -434,11 +436,15 @@ describe('PostgreSQL Advanced Concepts & Business Logic Integration', () => {
       const userIds = [staff1?.id, staff2?.id, donorUser?.id].filter(Boolean);
       if (userIds.length) {
         await client.query('DELETE FROM audit_logs WHERE actor_id = ANY($1)', [userIds]);
+        await client.query('DELETE FROM staff_memberships WHERE user_id = ANY($1)', [userIds]);
         await client.query('DELETE FROM users WHERE id = ANY($1)', [userIds]);
       }
 
       const bankIds = [bank1?.id, bank2?.id].filter(Boolean);
-      if (bankIds.length) await client.query('DELETE FROM blood_banks WHERE id = ANY($1)', [bankIds]);
+      if (bankIds.length) {
+        await client.query('DELETE FROM staff_memberships WHERE blood_bank_id = ANY($1)', [bankIds]);
+        await client.query('DELETE FROM blood_banks WHERE id = ANY($1)', [bankIds]);
+      }
       const locIds = [loc1?.id, loc2?.id].filter(Boolean);
       if (locIds.length) await client.query('DELETE FROM locations WHERE id = ANY($1)', [locIds]);
     }
