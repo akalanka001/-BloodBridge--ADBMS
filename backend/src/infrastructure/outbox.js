@@ -60,6 +60,22 @@ export async function deliverOutboxEvent(event) {
   }
 }
 
+export async function recoverStaleProcessingEvents(clientOrPool = pool, staleIntervalMinutes = 2) {
+  const executor = clientOrPool || pool;
+  const { rows } = await executor.query(
+    `UPDATE event_outbox
+     SET status = 'PENDING',
+         retry_count = retry_count + 1,
+         last_error = 'Recovered from interrupted worker (stale PROCESSING state)',
+         updated_at = now()
+     WHERE status = 'PROCESSING'
+       AND updated_at < now() - ($1 || ' minutes')::interval
+     RETURNING id, status, retry_count, last_error`,
+    [staleIntervalMinutes],
+  );
+  return rows;
+}
+
 export async function processOutboxBatch(batchSize = 20) {
   const client = await pool.connect();
   let claimedEvents = [];
@@ -68,15 +84,7 @@ export async function processOutboxBatch(batchSize = 20) {
     await client.query('BEGIN');
 
     // 1. Interrupted worker recovery: recover stale PROCESSING events older than 2 minutes
-    await client.query(
-      `UPDATE event_outbox
-       SET status = 'PENDING',
-           retry_count = retry_count + 1,
-           last_error = 'Recovered from interrupted worker (stale PROCESSING state)',
-           updated_at = now()
-       WHERE status = 'PROCESSING'
-         AND updated_at < now() - interval '2 minutes'`,
-    );
+    await recoverStaleProcessingEvents(client, 2);
 
     // 2. Claim pending or eligible failed events
     const { rows: events } = await client.query(

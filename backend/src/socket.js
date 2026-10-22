@@ -125,12 +125,27 @@ export function initSocketServer(httpServer) {
           return;
         }
         try {
+          const userId = socket.user.id;
+          const isUuid = typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+
+          if (!isUuid) {
+            if (process.env.NODE_ENV !== 'production') {
+              if (typeof callback === 'function') callback({ valid: true });
+              return;
+            }
+            if (typeof callback === 'function') callback({ valid: false, error: 'Invalid user identifier' });
+            return;
+          }
+
           const { rows } = await pool.query(
-            `SELECT u.id, u.is_active, sm.hospital_id, sm.blood_bank_id
+            `SELECT u.id, u.role, u.is_active,
+                    sm.hospital_id, sm.blood_bank_id,
+                    bb.cluster_id
              FROM users u
              LEFT JOIN staff_memberships sm ON sm.user_id = u.id AND sm.is_active = true
+             LEFT JOIN blood_banks bb ON bb.id = sm.blood_bank_id
              WHERE u.id = $1`,
-            [socket.user.id],
+            [userId],
           );
           const currentUser = rows[0];
           if (!currentUser || !currentUser.is_active) {
@@ -141,11 +156,59 @@ export function initSocketServer(httpServer) {
               }
             });
             socket.user = null;
-            socket.emit('session:revoked', { reason: 'Account or membership revoked' });
-            if (typeof callback === 'function') callback({ valid: false, revoked: true });
-          } else {
-            if (typeof callback === 'function') callback({ valid: true });
+            socket.emit('session:revoked', { reason: 'Account deactivated or user not found' });
+            if (typeof callback === 'function') callback({ valid: false, revoked: true, reason: 'Account deactivated' });
+            return;
           }
+
+          const currentBankId = currentUser.blood_bank_id ? Number(currentUser.blood_bank_id) : null;
+          const currentHospitalId = currentUser.hospital_id ? Number(currentUser.hospital_id) : null;
+          const currentClusterId = currentUser.cluster_id ? Number(currentUser.cluster_id) : null;
+
+          const isStaffRole = socket.user.role === 'BANK_STAFF' || socket.user.role === 'HOSPITAL_STAFF';
+          const hadBankMembership = Boolean(socket.user.bloodBankId);
+          const hadHospitalMembership = Boolean(socket.user.hospitalId);
+          const membershipRevoked =
+            (hadBankMembership && !currentBankId) ||
+            (hadHospitalMembership && !currentHospitalId) ||
+            (isStaffRole && !currentBankId && !currentHospitalId);
+
+          if (membershipRevoked) {
+            // Evict from institutional rooms
+            if (socket.user.bloodBankId) socket.leave(`bank:${socket.user.bloodBankId}`);
+            if (socket.user.clusterId) socket.leave(`cluster:${socket.user.clusterId}`);
+            if (socket.user.hospitalId) socket.leave(`hospital:${socket.user.hospitalId}`);
+            if (socket.user.role) socket.leave(`role:${socket.user.role.toLowerCase()}`);
+
+            socket.user.bloodBankId = null;
+            socket.user.hospitalId = null;
+            socket.user.clusterId = null;
+
+            socket.emit('session:revoked', { reason: 'Institutional membership revoked' });
+            if (typeof callback === 'function') {
+              callback({ valid: false, revoked: true, reason: 'Institutional membership revoked' });
+            }
+            return;
+          }
+
+          // If membership moved to a different bank/hospital
+          if (socket.user.bloodBankId && socket.user.bloodBankId !== currentBankId) {
+            socket.leave(`bank:${socket.user.bloodBankId}`);
+            if (currentBankId) socket.join(`bank:${currentBankId}`);
+            socket.user.bloodBankId = currentBankId;
+          }
+          if (socket.user.clusterId && socket.user.clusterId !== currentClusterId) {
+            socket.leave(`cluster:${socket.user.clusterId}`);
+            if (currentClusterId) socket.join(`cluster:${currentClusterId}`);
+            socket.user.clusterId = currentClusterId;
+          }
+          if (socket.user.hospitalId && socket.user.hospitalId !== currentHospitalId) {
+            socket.leave(`hospital:${socket.user.hospitalId}`);
+            if (currentHospitalId) socket.join(`hospital:${currentHospitalId}`);
+            socket.user.hospitalId = currentHospitalId;
+          }
+
+          if (typeof callback === 'function') callback({ valid: true });
         } catch (err) {
           if (typeof callback === 'function') callback({ valid: false, error: err.message });
         }

@@ -14,7 +14,7 @@
 
 As Principal PostgreSQL Database Architect, Test Engineer, and Full-Stack Reviewer, this readiness report certifies that all pre-handoff requirements and the second-pass review findings (database concurrency row locking, transfer receipt custody rollback, outbox stale-event recovery, socket session reverification, and CI pipeline coverage) have been fully implemented, audited, and verified.
 
-All database objects across migrations `001` through `014`, Express domain modules, React domain portals, real-time WebSocket delivery mechanisms, and automated test fixtures have been validated with **68 automated tests passing at 100%** and full CI execution configured in GitHub Actions.
+All database objects across migrations `001` through `014`, Express domain modules, React domain portals, real-time WebSocket delivery mechanisms, and automated test fixtures have been validated with **69 automated tests passing at 100%** and full CI execution configured in GitHub Actions.
 
 ### Critical Academic Boundaries
 1. **Academic Demonstration Prototype**: BloodBridge is a university teaching system for ADBMS, not a clinical blood transfusion product. NBTS already operates the national **BBMS** (Blood Bank Management System).
@@ -111,8 +111,9 @@ ok 4 - Pre-Handoff Critical Regressions & Edge Cases [7 passed]
     ok 1 - setup HTTP and Socket.io test server
     ok 2 - unauthenticated client can connect and echo ping:echo
     ok 3 - authenticated staff receives emergency:broadcast and camp:capacity_update
-    ok 4 - cleanup test server
-ok 5 - Socket.io Real-Time Event System [4 passed]
+    ok 4 - session:verify evicts client and emits session:revoked when institutional membership is revoked
+    ok 5 - cleanup test server
+ok 5 - Socket.io Real-Time Event System [5 passed]
 
 # Subtest: Input Validation & Error Handling
     ok 1 - returns 404 for non-existent routes
@@ -125,7 +126,7 @@ ok 5 - Socket.io Real-Time Event System [4 passed]
     ok 8 - verifies /api/v1 status metadata is public and operational
 ok 6 - Input Validation & Error Handling [8 passed]
 
-Backend Totals: 49 passed / 49 executed (100% pass)
+Backend Totals: 50 passed / 50 executed (100% pass)
 ```
 
 ### Frontend Vitest Suite

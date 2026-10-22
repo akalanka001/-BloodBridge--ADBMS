@@ -8,6 +8,7 @@ import { adminService } from '../src/modules/admin/admin.service.js';
 describe('BloodBridge Hybrid Donor Registration & Intake Integration', () => {
   let client;
   let bankStaffUserId;
+  let testLocationId;
   let testBankId;
   let onlineUserId;
   let onlineDonorId;
@@ -17,9 +18,20 @@ describe('BloodBridge Hybrid Donor Registration & Intake Integration', () => {
   before(async () => {
     client = await pool.connect();
 
-    // Fetch an existing active blood bank
-    const { rows: banks } = await client.query('SELECT id FROM blood_banks LIMIT 1');
-    testBankId = banks[0].id;
+    // Create isolated synthetic location and blood bank fixture
+    const { rows: locRows } = await client.query(`
+      INSERT INTO locations (district_code, ds_code, town, address_line)
+      VALUES ('CO', 'COL', 'Intake Test Town', '123 Synthetic Hospital Road')
+      RETURNING id
+    `);
+    testLocationId = locRows[0].id;
+
+    const { rows: bankRows } = await client.query(`
+      INSERT INTO blood_banks (name, location_id, is_verified)
+      VALUES ('Synthetic Intake Test Bank', $1, true)
+      RETURNING id
+    `, [testLocationId]);
+    testBankId = bankRows[0].id;
 
     // Create a staff user for testing
     const { rows: staffUser } = await client.query(`
@@ -52,7 +64,7 @@ describe('BloodBridge Hybrid Donor Registration & Intake Integration', () => {
           await client.query(
             `DELETE FROM audit_logs
              WHERE entity_name = 'donor_account_claims'
-               AND entity_id IN (SELECT id::text FROM donor_account_claims WHERE donor_id = ANY($1))`,
+                AND entity_id IN (SELECT id::text FROM donor_account_claims WHERE donor_id = ANY($1))`,
             [donorIds],
           );
           await client.query('DELETE FROM donor_account_claims WHERE donor_id = ANY($1)', [donorIds]);
@@ -64,6 +76,13 @@ describe('BloodBridge Hybrid Donor Registration & Intake Integration', () => {
           await client.query('DELETE FROM donors WHERE id = ANY($1)', [donorIds]);
         }
         await client.query('DELETE FROM staff_memberships WHERE user_id = $1', [bankStaffUserId]);
+        if (testBankId) {
+          await client.query('DELETE FROM staff_memberships WHERE blood_bank_id = $1', [testBankId]);
+          await client.query('DELETE FROM blood_banks WHERE id = $1', [testBankId]);
+        }
+        if (testLocationId) {
+          await client.query('DELETE FROM locations WHERE id = $1', [testLocationId]);
+        }
         await client.query('DELETE FROM audit_logs WHERE actor_id = $1', [bankStaffUserId]);
         await client.query('DELETE FROM users WHERE email IN (\'staff.intake.test@example.com\', \'online.hybrid.test@example.com\', \'online.claimant.test@example.com\')');
       } catch (err) {

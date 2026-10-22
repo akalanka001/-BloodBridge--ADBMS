@@ -4,8 +4,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { app } from '../src/server.js';
 import { pool } from '../src/db.js';
-import { transfersRepository } from '../src/modules/transfers/transfers.repository.js';
-import { processOutboxBatch } from '../src/infrastructure/outbox.js';
+import { processOutboxBatch, recoverStaleProcessingEvents } from '../src/infrastructure/outbox.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_must_be_set_in_production_min32chars';
 
@@ -552,7 +551,7 @@ describe('Pre-Handoff Critical Regressions & Edge Cases', () => {
   });
 
   it('Critical 7: Outbox processing recovers stale PROCESSING events from interrupted workers', async () => {
-    // Insert a stale PROCESSING event older than 3 minutes
+    // 1. Insert a stale PROCESSING event older than 3 minutes
     const { rows: outboxRows } = await client.query(`
       INSERT INTO event_outbox (event_type, aggregate_type, aggregate_id, payload, status, retry_count, updated_at)
       VALUES ('TEST_STALE_EVENT', 'testing', '9999', '{"test":true}', 'PROCESSING', 1, now() - interval '3 minutes')
@@ -560,15 +559,33 @@ describe('Pre-Handoff Critical Regressions & Edge Cases', () => {
     `);
     const staleEventId = outboxRows[0].id;
 
-    // Process batch: the recovery step resets this stale event to PENDING and increments retry_count
-    await processOutboxBatch(10);
+    // 2. Recovery assertion: execute isolated recovery and verify intermediate state before subsequent delivery processing
+    const recoveredList = await recoverStaleProcessingEvents(client, 2);
+    const matched = recoveredList.find((e) => e.id === staleEventId);
+    assert.ok(matched, 'Stale event must be matched and recovered by recoverStaleProcessingEvents');
 
-    const { rows: recovered } = await client.query('SELECT status, retry_count, last_error FROM event_outbox WHERE id = $1', [staleEventId]);
-    assert.ok(recovered[0].retry_count >= 2, 'Retry count must be incremented during stale event recovery');
+    const { rows: intermediate } = await client.query(
+      'SELECT status, retry_count, last_error FROM event_outbox WHERE id = $1',
+      [staleEventId],
+    );
+    assert.equal(intermediate[0].status, 'PENDING', 'Recovered event must be in intermediate PENDING state');
+    assert.equal(intermediate[0].retry_count, 2, 'Retry count must be incremented during stale event recovery');
     assert.ok(
-      recovered[0].last_error && recovered[0].last_error.includes('Recovered from interrupted worker'),
+      intermediate[0].last_error && intermediate[0].last_error.includes('Recovered from interrupted worker'),
       'Last error must record interrupted worker recovery',
     );
+
+    // 3. Delivery transition assertion: process batch independently
+    await processOutboxBatch(10);
+    const { rows: finalized } = await client.query(
+      'SELECT status, retry_count FROM event_outbox WHERE id = $1',
+      [staleEventId],
+    );
+    assert.ok(
+      ['PUBLISHED', 'PENDING', 'PROCESSING'].includes(finalized[0].status),
+      'Event must transition to its next processing state during delivery',
+    );
+    assert.ok(finalized[0].retry_count >= 2, 'Retry count must reflect recovery and processing');
 
     // Cleanup
     await client.query('DELETE FROM event_outbox WHERE id = $1', [staleEventId]);
