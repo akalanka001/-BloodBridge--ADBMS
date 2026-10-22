@@ -1,19 +1,20 @@
 # BloodBridge — Pre-Handoff Readiness & Verification Report
 
-**Document Version:** 1.1 (Final Corrective Pass Completed)  
+**Document Version:** 1.2 (Final Database Hardening & Full CI Coverage)  
 **Audit Date:** 22 October 2026  
 **Integration Base Branch:** `dev`  
 **Feature Branch:** `chore/pre-handoff-db-contracts`  
+**Pull Request:** [#7](https://github.com/akalanka001/-BloodBridge--ADBMS/pull/7)  
 **Target Demonstration Date:** Friday, 23 October 2026  
-**Integration Status:** **READY FOR SIX-MEMBER HANDOFF (GO)**
+**Integration Status:** **READY FOR MERGE AND SIX-MEMBER HANDOFF (GO)**
 
 ---
 
 ## 1. Executive Summary
 
-As Principal PostgreSQL Database Architect, Test Engineer, and Full-Stack Reviewer, this readiness report certifies that all pre-handoff requirements and critical corrective review findings have been resolved, audited, and verified prior to feature branching by the six student contributors.
+As Principal PostgreSQL Database Architect, Test Engineer, and Full-Stack Reviewer, this readiness report certifies that all pre-handoff requirements and the second-pass review findings (database concurrency row locking, transfer receipt custody rollback, outbox stale-event recovery, socket session reverification, and CI pipeline coverage) have been fully implemented, audited, and verified.
 
-All database objects, forward migrations (`011`, `012`, `013`), Express domain modules, React domain portals, real-time WebSocket delivery mechanisms, and automated test fixtures have been validated with **66 automated tests passing at 100%**.
+All database objects across migrations `001` through `014`, Express domain modules, React domain portals, real-time WebSocket delivery mechanisms, and automated test fixtures have been validated with **68 automated tests passing at 100%** and full CI execution configured in GitHub Actions.
 
 ### Critical Academic Boundaries
 1. **Academic Demonstration Prototype**: BloodBridge is a university teaching system for ADBMS, not a clinical blood transfusion product. NBTS already operates the national **BBMS** (Blood Bank Management System).
@@ -27,23 +28,24 @@ All database objects, forward migrations (`011`, `012`, `013`), Express domain m
 
 | Area | Item / Verification Gate | Status | Evidence Document / Artifact |
 |---|---|:---:|---|
-| **Git Safety** | Clean branch `chore/pre-handoff-db-contracts` from `origin/dev` | ✅ PASS | Preserved all existing work without destructive force-pushes. |
+| **Git Safety** | Clean branch `chore/pre-handoff-db-contracts` from `origin/dev` | ✅ PASS | Active PR #7; synchronized with remote origin. |
 | **National Reality Check** | Sri Lanka NBTS & DPA gap analysis with LK-01 to LK-15 | ✅ PASS | `docs/SRI_LANKA_REAL_WORLD_GAP_ANALYSIS.md` |
-| **Migration Sequence** | Sequential forward migration naming (`011`, `012`, `013`) | ✅ PASS | `database/migrations/013_corrective_intake_transfers.sql` |
+| **Migration Sequence** | Sequential forward migrations (`011`, `012`, `013`, `014`) | ✅ PASS | `database/migrations/014_transfer_hardening_and_outbox_recovery.sql` |
 | **Migration Atomicity** | Advisory lock + outer transaction block stripping in runner | ✅ PASS | `scripts/migrate.js` (`pg_advisory_lock: 849201948`) |
 | **Migration Idempotence** | Rerunning migration runner on migrated DB is safe (0 pending) | ✅ PASS | Verified via `node scripts/migrate.js` |
 | **Database Catalog** | 38 Tables, 7 Views, 7 Procedures, 7 Functions, 4 Triggers | ✅ PASS | Verified in PostgreSQL 16 database `bloodbridge` |
+| **Transfer Row-Locking Before Eligibility** | Lock attached unit rows `FOR UPDATE OF bu` before validating eligibility | ✅ PASS | `sp_dispatch_blood_transfer` in migration `014` |
+| **Transfer Receipt Custody Pre-Condition** | Assert every unit is `IN_TRANSIT` from source bank; atomic rollback on breach | ✅ PASS | `sp_receive_blood_transfer` in migration `014` & regression test 6 |
+| **Outbox Availability & Stale Recovery** | Outbox throws if Socket.IO uninitialized; recovers stale `PROCESSING` events | ✅ PASS | `backend/src/infrastructure/outbox.js` & regression test 7 |
+| **Socket.IO Production Protection** | Non-UUID test fallback disabled in production; active session reverification | ✅ PASS | `backend/src/socket.js` (`session:verify` room eviction) |
+| **Full Suite Backend CI** | CI executes all database integration, intake, and regression suites | ✅ PASS | `.github/workflows/ci.yml` runs `npm test` against PostgreSQL |
 | **Hybrid Donor Account Linking** | Safe reconciliation preserving walk-in donor ID & donation history | ✅ PASS | Verified in `sp_approve_donor_account_claim` & regression tests |
-| **Transfer Signature & Authorization** | 3-parameter procedure `sp_receive_blood_transfer($1,$2,$3)` + institution auth | ✅ PASS | Verified in `013_corrective_intake_transfers.sql` & API routes |
-| **Transfer Atomic Dispatch** | All-or-nothing unit validation during dispatch; rejects partial units | ✅ PASS | SQLSTATE `23514` verified in unit tests & procedure |
 | **Intake Authorization & State** | Institution staff check, passing assessment lock, DB duplicate prevention | ✅ PASS | `visit_id UNIQUE` on `donations`, trigger `trg_prevent_visit_reassignment` |
 | **Privacy & NIC Hashing** | Keyed HMAC strategy using `NIC_HMAC_SECRET` | ✅ PASS | `backend/src/modules/donor-intake/intake.service.js` |
 | **Explicit Donor Consent** | Outreach and camp notifications default to `false` (explicit opt-in) | ✅ PASS | Verified in validation schemas, frontend forms & DB audit |
-| **Outbox & Socket.io** | Guaranteed delivery before publishing + DB-authenticated socket rooms | ✅ PASS | `backend/src/infrastructure/outbox.js`, `backend/src/socket.js` |
 | **Camp Counter Distinction** | Separate `registered_count` and `capacity` fields in state and UI | ✅ PASS | `frontend/src/app/App.jsx`, `frontend/src/features/camps/CampsPage.jsx` |
 | **Frontend Modularization** | Dedicated domain pages: `DonorPortal`, `IntakePortal`, `TransfersPortal`, `HospitalPortal`, `AdminPortal` | ✅ PASS | `frontend/src/features/` domain components |
 | **Modular Backend** | 10 feature-based domain modules with clean contract-first interfaces | ✅ PASS | `backend/src/modules/` |
-| **CI/CD Readiness** | GitHub Actions CI workflow with BuildKit & Node test runner | ✅ PASS | `.github/workflows/ci.yml` |
 
 ---
 
@@ -101,7 +103,9 @@ ok 3 - BloodBridge Hybrid Donor Registration & Intake Integration [13 passed]
     ok 3 - Critical 3: Transfer dispatch rejects if ANY attached unit is ineligible and does not update partial units
     ok 4 - Critical 4: Transfer operations enforce bank-staff institution authorization
     ok 5 - Critical 5: Prevents concurrent duplicate collections on the same visit
-ok 4 - Pre-Handoff Critical Regressions & Edge Cases [5 passed]
+    ok 6 - Critical 6: Transfer receipt rejects and rolls back if ANY attached unit is not IN_TRANSIT
+    ok 7 - Critical 7: Outbox processing recovers stale PROCESSING events from interrupted workers
+ok 4 - Pre-Handoff Critical Regressions & Edge Cases [7 passed]
 
 # Subtest: Socket.io Real-Time Event System
     ok 1 - setup HTTP and Socket.io test server
@@ -121,7 +125,7 @@ ok 5 - Socket.io Real-Time Event System [4 passed]
     ok 8 - verifies /api/v1 status metadata is public and operational
 ok 6 - Input Validation & Error Handling [8 passed]
 
-Backend Totals: 47 passed / 47 executed (100% pass)
+Backend Totals: 49 passed / 49 executed (100% pass)
 ```
 
 ### Frontend Vitest Suite
@@ -158,27 +162,22 @@ Frontend Totals: 19 passed / 19 executed (100% pass)
 ```
 
 ### Overall Suite Metrics
-- **Total Backend Tests:** 47 passed (0 failed, 0 skipped)
+- **Total Backend Tests:** 49 passed (0 failed, 0 skipped)
 - **Total Frontend Tests:** 19 passed (0 failed, 0 skipped)
-- **Combined Test Count:** 66 tests passing (100% automated pass rate)
-- **Frontend Production Build:** Successful (`dist/index.html` 0.43 kB, JS bundle 241 kB in 18.6s)
+- **Combined Test Count:** 68 tests passing (100% automated pass rate)
+- **Frontend Production Build:** Successful (`dist/index.html` 0.43 kB, JS bundle 241 kB in 1.83s)
 
 ---
 
-## 4. Corrective Audit & Resolution Summary
+## 4. Hardening Audit & Resolution Summary
 
-| Issue Identified in Review | Severity | Technical Resolution Implemented | Verification Evidence |
+| Issue Identified in Review | Priority | Technical Resolution Implemented | Verification Evidence |
 |---|:---:|---|---|
-| **Online donor account linking blocked** | Critical | Reconciled claim approval in `sp_approve_donor_account_claim`: checks for online placeholder conflict, migrates camp registrations, unlinks placeholder, and links walk-in donor record preserving history. | Tested end-to-end via HTTP in `pre-handoff-regressions.test.js` (Subtest 1). |
-| **Transfer receipt SQL signature mismatch** | Critical | Created 3-parameter procedure `sp_receive_blood_transfer(p_transfer_id, p_actor_id, p_notes)` matching Express caller. | Tested in `database-integration.test.js` & `pre-handoff-regressions.test.js` (Subtest 2). |
-| **Transfer authorization incomplete** | Critical | Added source-bank staff membership check in dispatch procedure, and destination-bank staff check in receipt procedure (`42501`). | Subtest 4 in `pre-handoff-regressions.test.js` verifies non-assigned staff rejection. |
-| **Transfer validation not atomic** | Critical | Implemented all-or-nothing unit validation in `sp_dispatch_blood_transfer`: verifies every attached unit is released, in stock, unexpired, and matching source bank before any update. | Subtest 3 in `pre-handoff-regressions.test.js` verifies zero units updated if one unit is ineligible. |
-| **Intake authorization & duplicate collection** | Critical | Added `assertStaffBankAuthorization` to service/procedures, added `visit_id UNIQUE` on `donations`, locked visit status, and created immutability trigger `trg_prevent_visit_reassignment`. | Subtest 5 in `pre-handoff-regressions.test.js` verifies 2 concurrent collections fail at DB level. |
-| **National ID hashing unsalted** | High | Upgraded to keyed HMAC (`crypto.createHmac('sha256', secret)`) using `NIC_HMAC_SECRET` / `JWT_SECRET`. | Implemented in `intake.service.js` & verified across intake tests. |
-| **Consent defaulting to true** | High | Changed default to `false` across Zod schemas, repository queries, and React forms. Explicit opt-in required. | Verified in `DomainPortals.test.jsx` (Subtest 1 & 2) and `hybrid-intake.test.js`. |
-| **Outbox marked published without delivery** | High | Connected `processOutboxEvents` to Socket.IO delivery with row-locking `PROCESSING` status, retry backoff, and confirmed delivery before setting `PUBLISHED`. | Tested in `outbox.js` and real-time broadcasts. |
-| **Overly broad test cleanup** | High | Restricted test teardowns strictly to test-created entity arrays (`ANY($1)`), avoiding bulk table deletes. | Tested cleanly in `hybrid-intake.test.js` and `pre-handoff-regressions.test.js`. |
-| **Camp counter overwriting capacity** | Medium | Separated `registered_count` and `capacity` in React state and `CampCard` display. | Subtest 9 in `DomainPortals.test.jsx` verifies distinct display. |
+| **Transfer eligibility checked before row locks** | High | In `sp_dispatch_blood_transfer`, reordered execution to lock all attached units `FOR UPDATE OF bu` FIRST before running eligibility assertions. Prevents race conditions. | `014_transfer_hardening_and_outbox_recovery.sql:L60-80` |
+| **Transfer receipt unchecked attached units** | High | In `sp_receive_blood_transfer`, locked all attached units for update and strictly asserted that every unit is `IN_TRANSIT` from `source_bank_id`. Aborts transaction if any unit is not in transit. | Subtest 6 in `pre-handoff-regressions.test.js` verifies full transaction rollback. |
+| **Outbox published without delivery & interrupted workers** | High | Added delivery-channel availability check (throws if Socket.IO is null); added automated recovery for stale `PROCESSING` events older than 2 minutes; added lifecycle timestamp `updated_at`. | Subtest 7 in `pre-handoff-regressions.test.js` verifies stale worker recovery. |
+| **Socket.IO test fallback & revoked memberships** | Medium | Excluded non-UUID fallback from production (`process.env.NODE_ENV !== 'production'`); implemented `session:verify` handler that checks PostgreSQL and evicts revoked users from all private channels. | `backend/src/socket.js:L66-74, L120-150` |
+| **Backend CI excluded new test suites** | Medium | Updated `.github/workflows/ci.yml` to run `npm test` across all test files in the `postgres-integration` job, with `NIC_HMAC_SECRET` configured. | `.github/workflows/ci.yml:L114-126` |
 
 ---
 
@@ -192,7 +191,8 @@ Frontend Totals: 19 passed / 19 executed (100% pass)
 | `010_runtime_privileges.sql` | Baseline | Grants runtime execution privileges on public schema objects to the application role. |
 | `011_domain_extensions.sql` | Applied | GN divisions, clusters (`blood_bank_clusters`), inter-bank transfers (`blood_bank_transfers`), custody procedures, donor matching (`fn_match_potential_donors`), outbox (`event_outbox`), incidents (`quality_incidents`). |
 | `012_hybrid_donor_enrollment.sql` | Applied | Dual-path enrollment: `donors.user_id` nullable, walk-in origin and provenance fields, `uq_donors_national_id_hash`, `donor_visits`, `donor_account_claims`, `donor_consent_history`, trigger `trg_log_donor_consent_change`, procedures `sp_approve_donor_account_claim` and `sp_reject_donor_account_claim`, view `v_donor_intake_lookup`. |
-| `013_corrective_intake_transfers.sql` | **New** | Corrective migration: `visit_id UNIQUE` on `donations`, `reconciled_to_donor_id` on `donors`, trigger `trg_prevent_visit_reassignment`, reconciled `sp_approve_donor_account_claim`, atomic `sp_dispatch_blood_transfer`, 3-arg `sp_receive_blood_transfer`, `sp_record_donor_assessment`, and `sp_record_donation_collection`. |
+| `013_corrective_intake_transfers.sql` | Applied | Corrective migration: `visit_id UNIQUE` on `donations`, `reconciled_to_donor_id` on `donors`, trigger `trg_prevent_visit_reassignment`, reconciled `sp_approve_donor_account_claim`, atomic `sp_dispatch_blood_transfer`, 3-arg `sp_receive_blood_transfer`, `sp_record_donor_assessment`, and `sp_record_donation_collection`. |
+| `014_transfer_hardening_and_outbox_recovery.sql` | **New** | Hardening migration: `event_outbox.updated_at` column and stale index, `FOR UPDATE` pre-lock in `sp_dispatch_blood_transfer`, and strict `IN_TRANSIT` precondition enforcement in `sp_receive_blood_transfer`. |
 
 ---
 
@@ -211,12 +211,11 @@ Frontend Totals: 19 passed / 19 executed (100% pass)
 
 ## 7. GO / NO-GO Recommendation
 
-### Verdict: **GO** (Ready for Pull Request and Team Handoff)
+### Verdict: **GO** (Ready for Final PR Merge & Team Branching)
 
-All architectural foundations, forward database migrations, API contracts, UI modularity, and test suites are complete, executable, and validated.
+All architectural foundations, database concurrency row-locks, custody transfer pre-conditions, outbox recovery mechanisms, and CI pipeline test executions are complete, executable, and validated.
 
 ### Handoff Protocol
-1. Open Pull Request on GitHub: `chore/pre-handoff-db-contracts` ➔ `dev`.
-2. Verify GitHub Actions CI run (Docker build, backend test, frontend test/build).
-3. Obtain PR code review sign-off and merge into `dev`.
-4. Team members fetch `origin/dev` and branch into `feature/m1-...` through `feature/m6-...`.
+1. Review GitHub Actions CI run on PR [#7](https://github.com/akalanka001/-BloodBridge--ADBMS/pull/7).
+2. Record reviewer approval and merge [PR #7](https://github.com/akalanka001/-BloodBridge--ADBMS/pull/7) into `dev`.
+3. Team members fetch `origin/dev` and branch into `feature/m1-...` through `feature/m6-...`.

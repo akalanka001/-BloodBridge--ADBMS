@@ -63,8 +63,8 @@ export function initSocketServer(httpServer) {
           bloodBankId: dbUser.blood_bank_id ? Number(dbUser.blood_bank_id) : null,
           clusterId: dbUser.cluster_id ? Number(dbUser.cluster_id) : null,
         };
-      } else if (decoded.role && !isUuid) {
-        // Fallback for mocked non-UUID token payloads in unit tests
+      } else if (process.env.NODE_ENV !== 'production' && decoded.role && !isUuid) {
+        // Fallback strictly disabled in production (process.env.NODE_ENV === 'production')
         socket.user = {
           id: decoded.id || decoded.sub,
           role: decoded.role,
@@ -116,6 +116,39 @@ export function initSocketServer(httpServer) {
 
       socket.on('leave:camp', (campId) => {
         if (campId) socket.leave(`camp:${campId}`);
+      });
+
+      // Active reverification to handle revoked institutional memberships
+      socket.on('session:verify', async (callback) => {
+        if (!socket.user?.id) {
+          if (typeof callback === 'function') callback({ valid: false, error: 'Unauthenticated' });
+          return;
+        }
+        try {
+          const { rows } = await pool.query(
+            `SELECT u.id, u.is_active, sm.hospital_id, sm.blood_bank_id
+             FROM users u
+             LEFT JOIN staff_memberships sm ON sm.user_id = u.id AND sm.is_active = true
+             WHERE u.id = $1`,
+            [socket.user.id],
+          );
+          const currentUser = rows[0];
+          if (!currentUser || !currentUser.is_active) {
+            // Revoked: evict from all private rooms
+            socket.rooms.forEach((r) => {
+              if (r !== socket.id && r !== 'public' && r !== 'camps') {
+                socket.leave(r);
+              }
+            });
+            socket.user = null;
+            socket.emit('session:revoked', { reason: 'Account or membership revoked' });
+            if (typeof callback === 'function') callback({ valid: false, revoked: true });
+          } else {
+            if (typeof callback === 'function') callback({ valid: true });
+          }
+        } catch (err) {
+          if (typeof callback === 'function') callback({ valid: false, error: err.message });
+        }
       });
     }
 

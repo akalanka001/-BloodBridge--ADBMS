@@ -10,9 +10,9 @@ import {
 export async function recordOutboxEvent(clientOrPool, eventType, aggregateType, aggregateId, payload) {
   const executor = clientOrPool || pool;
   const { rows } = await executor.query(
-    `INSERT INTO event_outbox (event_type, aggregate_type, aggregate_id, payload, status)
-     VALUES ($1, $2, $3, $4, 'PENDING')
-     RETURNING id, event_type, aggregate_type, aggregate_id, created_at`,
+    `INSERT INTO event_outbox (event_type, aggregate_type, aggregate_id, payload, status, updated_at)
+     VALUES ($1, $2, $3, $4, 'PENDING', now())
+     RETURNING id, event_type, aggregate_type, aggregate_id, created_at, updated_at`,
     [eventType, aggregateType, aggregateId.toString(), JSON.stringify(payload)],
   );
   return rows[0];
@@ -20,6 +20,10 @@ export async function recordOutboxEvent(clientOrPool, eventType, aggregateType, 
 
 export async function deliverOutboxEvent(event) {
   const io = getIO();
+  if (!io) {
+    throw new Error('Delivery channel unavailable: Socket.IO server not initialized');
+  }
+
   const payload = typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload;
 
   switch (event.event_type) {
@@ -41,23 +45,17 @@ export async function deliverOutboxEvent(event) {
       break;
 
     case 'DONATION_COLLECTED':
-      if (io) {
-        if (payload.bloodBankId) io.to(`bank:${payload.bloodBankId}`).emit('donation:collected', payload);
-        io.to('role:admin').emit('donation:collected', payload);
-      }
+      if (payload.bloodBankId) io.to(`bank:${payload.bloodBankId}`).emit('donation:collected', payload);
+      io.to('role:admin').emit('donation:collected', payload);
       break;
 
     case 'DONOR_ACCOUNT_LINKED':
-      if (io) {
-        if (payload.userId) io.to(`user:${payload.userId}`).emit('donor:linked', payload);
-        io.to('role:admin').emit('donor:linked', payload);
-      }
+      if (payload.userId) io.to(`user:${payload.userId}`).emit('donor:linked', payload);
+      io.to('role:admin').emit('donor:linked', payload);
       break;
 
     default:
-      if (io) {
-        io.to('role:admin').emit(`event:${event.event_type.toLowerCase()}`, payload);
-      }
+      io.to('role:admin').emit(`event:${event.event_type.toLowerCase()}`, payload);
       break;
   }
 }
@@ -68,6 +66,19 @@ export async function processOutboxBatch(batchSize = 20) {
 
   try {
     await client.query('BEGIN');
+
+    // 1. Interrupted worker recovery: recover stale PROCESSING events older than 2 minutes
+    await client.query(
+      `UPDATE event_outbox
+       SET status = 'PENDING',
+           retry_count = retry_count + 1,
+           last_error = 'Recovered from interrupted worker (stale PROCESSING state)',
+           updated_at = now()
+       WHERE status = 'PROCESSING'
+         AND updated_at < now() - interval '2 minutes'`,
+    );
+
+    // 2. Claim pending or eligible failed events
     const { rows: events } = await client.query(
       `SELECT id, event_type, aggregate_type, aggregate_id, payload, retry_count
        FROM event_outbox
@@ -82,7 +93,8 @@ export async function processOutboxBatch(batchSize = 20) {
       const eventIds = events.map((e) => e.id);
       await client.query(
         `UPDATE event_outbox
-         SET status = 'PROCESSING'
+         SET status = 'PROCESSING',
+             updated_at = now()
          WHERE id = ANY($1)`,
         [eventIds],
       );
@@ -96,14 +108,17 @@ export async function processOutboxBatch(batchSize = 20) {
     client.release();
   }
 
-  // Delivery phase: each claimed event is processed and delivery confirmed individually
+  // Delivery phase: verify delivery before setting PUBLISHED
   const results = [];
   for (const ev of claimedEvents) {
     try {
       await deliverOutboxEvent(ev);
       await pool.query(
         `UPDATE event_outbox
-         SET status = 'PUBLISHED', published_at = now(), last_error = NULL
+         SET status = 'PUBLISHED',
+             published_at = now(),
+             updated_at = now(),
+             last_error = NULL
          WHERE id = $1`,
         [ev.id],
       );
@@ -113,7 +128,10 @@ export async function processOutboxBatch(batchSize = 20) {
       const nextStatus = nextRetry >= 5 ? 'FAILED' : 'PENDING';
       await pool.query(
         `UPDATE event_outbox
-         SET status = $1, retry_count = $2, last_error = $3
+         SET status = $1,
+             retry_count = $2,
+             last_error = $3,
+             updated_at = now()
          WHERE id = $4`,
         [nextStatus, nextRetry, deliveryErr.message, ev.id],
       );

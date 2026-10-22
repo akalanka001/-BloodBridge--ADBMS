@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { app } from '../src/server.js';
 import { pool } from '../src/db.js';
 import { transfersRepository } from '../src/modules/transfers/transfers.repository.js';
+import { processOutboxBatch } from '../src/infrastructure/outbox.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_must_be_set_in_production_min32chars';
 
@@ -482,5 +483,94 @@ describe('Pre-Handoff Critical Regressions & Edge Cases', () => {
     // Verify only 1 donation exists for this visit in the database
     const { rows: donCount } = await client.query('SELECT count(*)::int AS count FROM donations WHERE donor_id = $1', [donorId]);
     assert.equal(donCount[0].count, 1, 'Only one donation record must exist for this visit');
+  });
+
+  it('Critical 6: Transfer receipt rejects and rolls back if ANY attached unit is not IN_TRANSIT', async () => {
+    // 0. Create donor and donation for units
+    const { rows: dRows } = await client.query(`
+      INSERT INTO donors (full_name, phone, blood_type_code, district_code, registration_origin)
+      VALUES ('Transfer Integrity Donor', '0778881234', 'A+', 'CO', 'STAFF_WALKIN')
+      RETURNING id
+    `);
+    const dId = dRows[0].id;
+    createdDonorIds.push(dId);
+
+    const { rows: donRows } = await client.query(`
+      INSERT INTO donations (donor_id, blood_bank_id, collected_at, process_status)
+      VALUES ($1, $2, now() - interval '2 days', 'PROCESSED')
+      RETURNING id
+    `, [dId, testBank1Id]);
+    const donId = donRows[0].id;
+    createdDonationIds.push(donId);
+
+    // 1. Create transfer in IN_TRANSIT status
+    const { rows: tRows } = await client.query(`
+      INSERT INTO blood_bank_transfers (transfer_code, source_bank_id, target_bank_id, status, requested_by, dispatched_by)
+      VALUES ($1, $2, $3, 'IN_TRANSIT', $4, $4)
+      RETURNING id
+    `, [`TRF-ERR-${Math.random().toString(36).slice(2, 7)}`, testBank1Id, testBank2Id, bank1StaffId]);
+    const transferId = tRows[0].id;
+    createdTransferIds.push(transferId);
+
+    // 2. Unit A: properly IN_TRANSIT
+    const { rows: uA } = await client.query(`
+      INSERT INTO blood_units (donation_id, blood_bank_id, blood_type_code, component_code, collected_at, expires_at, release_status, inventory_status, released_by)
+      VALUES ($1, $2, 'A+', 'RBC', now() - interval '1 day', now() + interval '30 days', 'RELEASED', 'IN_TRANSIT', $3)
+      RETURNING id
+    `, [donId, testBank1Id, bank1StaffId]);
+    const unitA = uA[0].id;
+    createdUnitIds.push(unitA);
+
+    // 3. Unit B: improperly left IN_STOCK (not IN_TRANSIT)
+    const { rows: uB } = await client.query(`
+      INSERT INTO blood_units (donation_id, blood_bank_id, blood_type_code, component_code, collected_at, expires_at, release_status, inventory_status, released_by)
+      VALUES ($1, $2, 'A+', 'RBC', now() - interval '1 day', now() + interval '30 days', 'RELEASED', 'IN_STOCK', $3)
+      RETURNING id
+    `, [donId, testBank1Id, bank1StaffId]);
+    const unitB = uB[0].id;
+    createdUnitIds.push(unitB);
+
+    await client.query('INSERT INTO transfer_units (transfer_id, blood_unit_id) VALUES ($1, $2), ($1, $3)', [transferId, unitA, unitB]);
+
+    // 4. Attempt receipt via HTTP (destination staff)
+    const res = await request(app)
+      .post(`/api/v1/transfers/${transferId}/receive`)
+      .set('Authorization', `Bearer ${bank2StaffToken}`)
+      .send({ notes: 'Receiving transfer with one bad unit' });
+
+    assert.equal(res.status, 400, 'Receipt must fail (400) because unit B is not IN_TRANSIT');
+    assert.ok(res.body.error, 'Error message must be present in response');
+
+    // 5. Verify rollback: Unit A must STILL be in IN_TRANSIT and at source bank
+    const { rows: checkA } = await client.query('SELECT inventory_status, blood_bank_id FROM blood_units WHERE id = $1', [unitA]);
+    assert.equal(checkA[0].inventory_status, 'IN_TRANSIT', 'Unit A must remain in IN_TRANSIT after failed receipt');
+    assert.equal(Number(checkA[0].blood_bank_id), Number(testBank1Id), 'Unit A must remain at source bank');
+
+    // Transfer status must still be IN_TRANSIT
+    const { rows: checkT } = await client.query('SELECT status FROM blood_bank_transfers WHERE id = $1', [transferId]);
+    assert.equal(checkT[0].status, 'IN_TRANSIT', 'Transfer status must remain IN_TRANSIT');
+  });
+
+  it('Critical 7: Outbox processing recovers stale PROCESSING events from interrupted workers', async () => {
+    // Insert a stale PROCESSING event older than 3 minutes
+    const { rows: outboxRows } = await client.query(`
+      INSERT INTO event_outbox (event_type, aggregate_type, aggregate_id, payload, status, retry_count, updated_at)
+      VALUES ('TEST_STALE_EVENT', 'testing', '9999', '{"test":true}', 'PROCESSING', 1, now() - interval '3 minutes')
+      RETURNING id
+    `);
+    const staleEventId = outboxRows[0].id;
+
+    // Process batch: the recovery step resets this stale event to PENDING and increments retry_count
+    await processOutboxBatch(10);
+
+    const { rows: recovered } = await client.query('SELECT status, retry_count, last_error FROM event_outbox WHERE id = $1', [staleEventId]);
+    assert.ok(recovered[0].retry_count >= 2, 'Retry count must be incremented during stale event recovery');
+    assert.ok(
+      recovered[0].last_error && recovered[0].last_error.includes('Recovered from interrupted worker'),
+      'Last error must record interrupted worker recovery',
+    );
+
+    // Cleanup
+    await client.query('DELETE FROM event_outbox WHERE id = $1', [staleEventId]);
   });
 });
