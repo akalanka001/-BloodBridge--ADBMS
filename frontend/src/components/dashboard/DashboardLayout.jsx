@@ -36,6 +36,13 @@ import {
   PackageCheck,
   CalendarDays,
   History,
+  CalendarClock,
+  TicketCheck,
+  ClipboardList,
+  BadgeCheck,
+  MailCheck,
+  Image as ImageIcon,
+  UserCheck,
 } from 'lucide-react';
 import { navigate } from '../../lib/navigation.js';
 
@@ -66,9 +73,10 @@ export function DashboardLayout({
       menu: [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'donations', label: 'My Donations', icon: Heart },
-        { id: 'appointments', label: 'Appointments', icon: Calendar },
+        { id: 'appointments', label: 'Appointments', icon: CalendarClock },
         { id: 'banks', label: 'Find Blood Banks', icon: Building2 },
-        { id: 'camps', label: 'Find Camps', icon: Tent },
+        { id: 'camps', label: 'Find Camps', icon: MapPin },
+        { id: 'registrations', label: 'My Registrations', icon: TicketCheck },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'profile', label: 'My Profile', icon: User },
         { id: 'preferences', label: 'Privacy & Preferences', icon: Sliders },
@@ -115,6 +123,9 @@ export function DashboardLayout({
       tag: 'ADMINISTRATION',
       menu: [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'camp-oversight', label: 'Camp Oversight', icon: ClipboardList },
+        { id: 'camp-approvals', label: 'Camp Approvals', icon: BadgeCheck },
+        { id: 'notification-monitoring', label: 'Notification Monitoring', icon: MailCheck },
         { id: 'users', label: 'Users and roles', icon: Users },
         { id: 'institutions', label: 'Institutions', icon: Building2 },
         { id: 'analytics', label: 'Analytics', icon: TrendingUp },

@@ -22,6 +22,12 @@ import { ComponentProcessingPage } from '../inventory/pages/ComponentProcessingP
 import { StockReservationForm } from '../inventory/components/StockReservationForm.jsx';
 import { IntakePortal } from '../intake/IntakePortal.jsx';
 import { TransfersPortal } from '../transfers/TransfersPortal.jsx';
+import { CampManagementPage } from '../camps/pages/CampManagementPage.jsx';
+import { CreateCampPage } from '../camps/pages/CreateCampPage.jsx';
+import { CampDetailsPage } from '../camps/pages/CampDetailsPage.jsx';
+import { CampRegistrationsPage } from '../camps/pages/CampRegistrationsPage.jsx';
+import { CampAttendancePage } from '../camps/pages/CampAttendancePage.jsx';
+import { NotificationInbox } from '../notifications/pages/NotificationInbox.jsx';
 
 export function BankPortal({
   token,
@@ -30,6 +36,7 @@ export function BankPortal({
   onTabChange = () => {},
 }) {
   const userBankId = session?.user?.bloodBankId || 1;
+  const [campSubView, setCampSubView] = useState({ page: 'list', data: null });
 
   // Data states
   const [dashboardData, setDashboardData] = useState({
@@ -540,108 +547,49 @@ export function BankPortal({
 
       {/* 12. Donation Camps */}
       {activeTab === 'camps' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-            <div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1D3043', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <CalendarDays size={24} color="#DB3654" />
-                Coordinating Donation Camps
-              </h2>
-              <span style={{ fontSize: 13, color: '#7A8B9E' }}>
-                Approved upcoming mobile blood donation sessions coordinated with community organizers
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={loadCamps}
-              disabled={loading}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '9px 16px',
-                borderRadius: 8,
-                border: '1px solid #D1D5DB',
-                background: '#FFFFFF',
-                color: '#4B5563',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
+        <>
+          {campSubView.page === 'list' && (
+            <CampManagementPage
+              user={session?.user}
+              onNavigate={(action, payload) => setCampSubView({ page: action, data: payload })}
+            />
+          )}
+          {campSubView.page === 'create-camp' && (
+            <CreateCampPage
+              onBack={() => setCampSubView({ page: 'list', data: null })}
+              onSuccess={() => {
+                setCampSubView({ page: 'list', data: null });
+                loadDashboard();
               }}
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              Refresh Camps
-            </button>
-          </div>
-
-          <div className="dash-card" style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E8ECF2', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #E8ECF2' }}>
-              <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1D3043', margin: 0 }}>
-                Approved Camps ({upcomingCamps.length})
-              </h3>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: '#F7F9FC', borderBottom: '1px solid #E8ECF2' }}>
-                    <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>CAMP NAME</th>
-                    <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>VENUE</th>
-                    <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>START DATE & TIME</th>
-                    <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>TARGET UNITS</th>
-                    <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>COLLECTIONS</th>
-                    <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {upcomingCamps.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '36px 14px', color: '#7A8B9E', fontSize: 13 }}>
-                        No upcoming approved camps recorded for this blood bank.
-                      </td>
-                    </tr>
-                  ) : (
-                    upcomingCamps.map((camp) => (
-                      <tr key={camp.id} style={{ borderBottom: '1px solid #E8ECF2' }}>
-                        <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: '#1D3043' }}>
-                          {camp.name}
-                        </td>
-                        <td style={{ padding: '12px 14px', fontSize: 13, color: '#4B5563' }}>
-                          {camp.venue_name}
-                        </td>
-                        <td style={{ padding: '12px 14px', fontSize: 12, color: '#4B5563' }}>
-                          {new Date(camp.starts_at).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: '#1D3043' }}>
-                          {camp.target_units} units
-                        </td>
-                        <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: '#047857' }}>
-                          {camp.actual_collections || 0}
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <span
-                            style={{
-                              background: '#ECFDF5',
-                              color: '#047857',
-                              border: '1px solid #A7F3D0',
-                              fontSize: 11,
-                              fontWeight: 700,
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                            }}
-                          >
-                            {camp.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+            />
+          )}
+          {campSubView.page === 'edit-camp' && (
+            <CreateCampPage
+              initialCamp={campSubView.data?.camp}
+              onBack={() => setCampSubView({ page: 'list', data: null })}
+              onSuccess={() => setCampSubView({ page: 'list', data: null })}
+            />
+          )}
+          {campSubView.page === 'camp-details' && (
+            <CampDetailsPage
+              campId={campSubView.data?.campId}
+              onBack={() => setCampSubView({ page: 'list', data: null })}
+              user={session?.user}
+            />
+          )}
+          {campSubView.page === 'camp-registrations' && (
+            <CampRegistrationsPage
+              campId={campSubView.data?.campId}
+              onBack={() => setCampSubView({ page: 'list', data: null })}
+            />
+          )}
+          {campSubView.page === 'camp-attendance' && (
+            <CampAttendancePage
+              campId={campSubView.data?.campId}
+              onBack={() => setCampSubView({ page: 'list', data: null })}
+            />
+          )}
+        </>
       )}
 
       {/* 13. Inventory Activity */}
@@ -655,59 +603,7 @@ export function BankPortal({
 
       {/* 14. Notifications */}
       {activeTab === 'notifications' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1D3043', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Bell size={24} color="#DB3654" />
-                Operational Alerts & Notifications
-              </h2>
-              <span style={{ fontSize: 13, color: '#7A8B9E' }}>
-                System and clinical alerts across inventory custody, cold-chain transfers, and emergencies
-              </span>
-            </div>
-          </div>
-
-          <div className="dash-card" style={{ background: '#FFFFFF', borderRadius: 16, padding: 24, border: '1px solid #E8ECF2' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, paddingBottom: 12, borderBottom: '1px solid #E8ECF2' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#FFF4E5', color: '#D49A36', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Clock size={18} />
-                </div>
-                <div>
-                  <strong style={{ fontSize: 13, color: '#1D3043', display: 'block' }}>Daily Expiry Warning System</strong>
-                  <span style={{ fontSize: 12, color: '#7A8B9E' }}>
-                    {dashboardData.kpis.expiring_soon} unit(s) are approaching expiry threshold within 7 days. Inspect in Expiry Alerts.
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, paddingBottom: 12, borderBottom: '1px solid #E8ECF2' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#EFF6FF', color: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <FileText size={18} />
-                </div>
-                <div>
-                  <strong style={{ fontSize: 13, color: '#1D3043', display: 'block' }}>Network Clinical Demand</strong>
-                  <span style={{ fontSize: 12, color: '#7A8B9E' }}>
-                    {dashboardData.kpis.incoming_requests} pending hospital blood request(s) waiting in queue.
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#ECFDF5', color: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <CheckCircle2 size={18} />
-                </div>
-                <div>
-                  <strong style={{ fontSize: 13, color: '#1D3043', display: 'block' }}>Intake Progress Today</strong>
-                  <span style={{ fontSize: 12, color: '#7A8B9E' }}>
-                    {dashboardData.kpis.today_collections} blood collection(s) recorded at this center today.
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <NotificationInbox user={session?.user} />
       )}
     </div>
   );

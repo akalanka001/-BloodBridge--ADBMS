@@ -17,12 +17,14 @@ import inventoryRoutes from './modules/inventory/inventory.routes.js';
 import bankRoutes from './modules/bank/bank.routes.js';
 import transferRoutes from './modules/transfers/transfers.routes.js';
 import campRoutes from './modules/camps/camps.routes.js';
+import mediaRoutes from './modules/media/media.routes.js';
+import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '150kb' }));
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', async (_req, res) => {
   try {
@@ -39,7 +41,7 @@ app.get('/api/v1', (_req, res) => res.json({
   version: '2.0.0',
   modules: [
     'identity', 'geography', 'donors', 'donor-intake',
-    'requests', 'inventory', 'transfers', 'camps', 'analytics', 'admin',
+    'requests', 'inventory', 'transfers', 'camps', 'media', 'notifications', 'analytics', 'admin',
   ],
   note: 'API routes verified under docs/API_IMPLEMENTED.md and docs/API_CONTRACT_V2.yaml',
 }));
@@ -57,6 +59,8 @@ app.use('/api/v1/inventory', inventoryRoutes);
 app.use('/api/v1/bank', bankRoutes);
 app.use('/api/v1/transfers', transferRoutes);
 app.use('/api/v1/camps', campRoutes);
+app.use('/api/v1/media', mediaRoutes);
+app.use('/api/v1/notifications', notificationsRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
