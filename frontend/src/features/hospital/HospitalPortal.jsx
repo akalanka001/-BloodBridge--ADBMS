@@ -9,6 +9,7 @@ import { DeliveriesPage } from './pages/DeliveriesPage.jsx';
 import { FindDonorsPage } from './pages/FindDonorsPage.jsx';
 import { BloodBanksPage } from './pages/BloodBanksPage.jsx';
 import { HospitalReportsPage } from './pages/HospitalReportsPage.jsx';
+import { HospitalNotificationsPage } from './pages/HospitalNotificationsPage.jsx';
 import { AlertTriangle, CheckCircle, Bell, Clock } from 'lucide-react';
 
 export function HospitalPortal({
@@ -340,32 +341,13 @@ export function HospitalPortal({
       )}
 
       {currentPage === 'notifications' && (
-        <div style={{ background: '#FFFFFF', padding: 28, borderRadius: 16, border: '1px solid #E8ECF2' }}>
-          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1D3043', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Bell size={20} color="#DB3654" />
-            Hospital Notifications & Stock Alerts
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ padding: 14, borderRadius: 10, background: '#F7F9FC', border: '1px solid #E8ECF2' }}>
-              <div style={{ fontWeight: 700, color: '#1D3043', fontSize: 13 }}>
-                Automated Network Synchronization Active
-              </div>
-              <div style={{ color: '#7A8B9E', fontSize: 12, marginTop: 2 }}>
-                Real-time WebSocket alerts notify your dashboard when blood banks reserve, dispatch, or deliver requested component units.
-              </div>
-            </div>
-            {dashboardData.kpis.critical_priority > 0 && (
-              <div style={{ padding: 14, borderRadius: 10, background: '#FFF0F2', border: '1px solid #FFE2E8' }}>
-                <div style={{ fontWeight: 700, color: '#DB3654', fontSize: 13 }}>
-                  Critical Priority Alert
-                </div>
-                <div style={{ color: '#881337', fontSize: 12, marginTop: 2 }}>
-                  {dashboardData.kpis.critical_priority} critical requests require immediate clinical supply coordination.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <HospitalNotificationsPage
+          requests={requests}
+          appeals={appeals}
+          kpis={dashboardData.kpis}
+          onNavigate={(page) => setCurrentPage(page)}
+          onSelectRequest={handleSelectRequest}
+        />
       )}
     </div>
   );

@@ -15,38 +15,10 @@ export function HospitalOverview({
 
   return (
     <div className="hospital-overview-page" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* 1. Header Banner & Action */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1D3043', margin: '0 0 4px 0' }}>
-            Hospital operations
-          </h2>
-          <p style={{ fontSize: 14, color: '#7A8B9E', margin: 0 }}>
-            Manage requests and coordinate with the national blood network.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onNavigate('new-request')}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '12px 24px',
-            borderRadius: 12,
-            border: 'none',
-            background: '#DB3654',
-            color: '#FFFFFF',
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(219, 54, 84, 0.25)',
-          }}
-        >
-          <Plus size={18} />
-          New blood request
-        </button>
-      </div>
+      {/* Accessible Title */}
+      <h2 style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', border: 0 }}>
+        Hospital operations
+      </h2>
 
       {/* 2. Three KPI Stat Cards (Real data from database) */}
       <RequestStatCards kpis={kpis} onCardClick={(tab, filters) => onNavigate(tab, filters)} />

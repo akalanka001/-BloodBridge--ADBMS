@@ -187,4 +187,33 @@ describe('Member 3 — Hospital Dashboard & Emergency Coordination (M3 Frontend)
     expect(screen.getByText(/Priority coordination/i)).toBeDefined();
     expect(screen.getByText(/#req-alph/i)).toBeDefined();
   });
+
+  it('M3-UI-05: renders HospitalNotificationsPage with privacy assurance and filters without donor personal data', () => {
+    render(
+      <HospitalPortal
+        token="test-token"
+        userHospitalId={1}
+        activeTab="notifications"
+      />
+    );
+
+    expect(screen.getByText(/Hospital Notifications & Fulfillment Alerts/i)).toBeDefined();
+    expect(screen.getByText(/Privacy Assured/i)).toBeDefined();
+    expect(screen.getByText(/All Alerts/i)).toBeDefined();
+    expect(screen.getByText(/Urgent & Critical/i)).toBeDefined();
+  });
+
+  it('M3-UI-06: renders DeliveriesPage with delivery tracking and receipt verification', () => {
+    render(
+      <HospitalPortal
+        token="test-token"
+        userHospitalId={1}
+        activeTab="tracking"
+      />
+    );
+
+    expect(screen.getByText(/Request Tracking & Blood Bank Deliveries/i)).toBeDefined();
+    expect(screen.getByText(/In-Transit Dispatches/i)).toBeDefined();
+    expect(screen.getByText(/Received Deliveries History/i)).toBeDefined();
+  });
 });
