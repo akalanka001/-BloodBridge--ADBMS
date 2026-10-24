@@ -135,23 +135,86 @@ try {
     }
 
     // 5. Ensure Donor Profile for donor@bloodbridge.lk (Age 30, 68kg, O+, Colombo)
+    let actualDonorId;
     const existingDonor = await client.query(`SELECT id FROM donors WHERE user_id = $1`, [donorId]);
     if (existingDonor.rows[0]) {
+      actualDonorId = existingDonor.rows[0].id;
       await client.query(
         `UPDATE donors
          SET blood_type_code = 'O+', district_code = 'CO', ds_code = 'MAH',
              birth_date = '1996-05-15', weight_kg = 68.0, town = 'Maharagama',
              available_for_contact = true, camp_notifications_opt_in = true
          WHERE id = $1`,
-        [existingDonor.rows[0].id],
+        [actualDonorId],
       );
     } else {
-      await client.query(
+      const createdDonor = await client.query(
         `INSERT INTO donors(user_id, blood_type_code, district_code, ds_code, birth_date, weight_kg, town, available_for_contact, camp_notifications_opt_in)
-         VALUES($1, 'O+', 'CO', 'MAH', '1996-05-15', 68.0, 'Maharagama', true, true)`,
+         VALUES($1, 'O+', 'CO', 'MAH', '1996-05-15', 68.0, 'Maharagama', true, true)
+         RETURNING id`,
         [donorId],
       );
+      actualDonorId = createdDonor.rows[0].id;
     }
+
+    // Seed 6 completed donations for demo donor (matching 02-donor-dashboard.svg: 06 donations in Jan, Mar, May, Jul, Sep, Oct)
+    const existingDonations = await client.query(`SELECT count(*)::int AS cnt FROM donations WHERE donor_id = $1`, [actualDonorId]);
+    if (existingDonations.rows[0].cnt === 0) {
+      const dates = [
+        '2026-01-15 09:30:00+05:30',
+        '2026-03-12 10:15:00+05:30',
+        '2026-05-18 11:00:00+05:30',
+        '2026-07-10 14:20:00+05:30',
+        '2026-09-08 09:45:00+05:30',
+        '2026-10-19 10:30:00+05:30',
+      ];
+      for (const d of dates) {
+        await client.query(
+          `INSERT INTO donations (donor_id, blood_bank_id, collected_at, collected_volume_ml, process_status)
+           VALUES ($1, $2, $3, 450, 'PROCESSED')`,
+          [actualDonorId, bloodBankId, d],
+        );
+      }
+    }
+
+    // Ensure initial donor_consents row exists
+    await client.query(
+      `INSERT INTO donor_consents (donor_id, contact_allowed, camp_notification_opt_in, emergency_appeal_opt_in, sms_alerts, email_alerts, in_app_alerts)
+       VALUES ($1, true, true, true, true, true, true)
+       ON CONFLICT (donor_id) DO UPDATE
+       SET contact_allowed = true, camp_notification_opt_in = true, in_app_alerts = true`,
+      [actualDonorId],
+    );
+
+    // Ensure 2 invitations for demo donor matching 02-donor-dashboard.svg
+    await client.query(
+      `INSERT INTO donor_invitations (
+        id, donor_id, blood_bank_id, blood_type_code, urgency,
+        title, message, area_description, status, expires_at, created_at
+      ) VALUES
+        (
+          'e1111111-1111-1111-1111-111111111111',
+          $1, $2, 'O+', 'CRITICAL',
+          'City Blood Center Match Request',
+          'Urgent O+ Red Cell requirement for trauma care at City Blood Center.',
+          'Colombo District · 4.2 km away',
+          'PENDING',
+          now() + INTERVAL '3 days',
+          now() - INTERVAL '2 hours'
+        ),
+        (
+          'e2222222-2222-2222-2222-222222222222',
+          $1, $2, 'O+', 'URGENT',
+          'Community Blood Drive Invitation',
+          'Upcoming donation drive at Colombo Town Hall.',
+          'Colombo District · 6.0 km away',
+          'PENDING',
+          now() + INTERVAL '5 days',
+          now() - INTERVAL '1 day'
+        )
+      ON CONFLICT (id) DO NOTHING`,
+      [actualDonorId, bloodBankId],
+    );
 
     // 6. Ensure at least one approved upcoming donation camp
     let camp = await client.query("SELECT id FROM donation_camps WHERE title = 'DEMO Community Donation Camp' LIMIT 1");

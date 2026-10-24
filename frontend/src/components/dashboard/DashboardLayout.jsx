@@ -21,6 +21,10 @@ import {
   X,
   Droplet,
   Hospital,
+  Tent,
+  User,
+  Sliders,
+  Settings,
 } from 'lucide-react';
 import { navigate } from '../../lib/navigation.js';
 
@@ -50,12 +54,16 @@ export function DashboardLayout({
       tag: 'DONOR PORTAL',
       menu: [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'donations', label: 'My donations', icon: Heart },
+        { id: 'donations', label: 'My Donations', icon: Heart },
         { id: 'appointments', label: 'Appointments', icon: Calendar },
-        { id: 'banks', label: 'Find blood banks', icon: MapPin },
+        { id: 'banks', label: 'Find Blood Banks', icon: Building2 },
+        { id: 'camps', label: 'Find Camps', icon: Tent },
         { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'profile', label: 'My Profile', icon: User },
+        { id: 'preferences', label: 'Privacy & Preferences', icon: Sliders },
+        { id: 'settings', label: 'Account Settings', icon: Settings },
       ],
-      defaultAction: { label: 'Find a blood bank', onClick: () => navigate('camps') },
+      defaultAction: { label: 'Find a blood bank', onClick: () => onTabChange('banks') },
     },
     HOSPITAL_STAFF: {
       tag: 'HOSPITAL PORTAL',

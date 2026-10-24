@@ -1081,4 +1081,1118 @@
   }
 }
 
+/* ==========================================================================
+   DONOR DASHBOARD & PORTAL STYLES (MATCHING 02-donor-dashboard.svg)
+   ========================================================================== */
 
+.donor-portal-container {
+  width: 100%;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero Row */
+.donor-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.donor-hero-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1D3043;
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+.donor-hero-subtitle {
+  font-size: 14px;
+  color: #7A8B9E;
+  margin-top: 4px;
+}
+.hero-cta-btn {
+  background: #DB3654;
+  color: white;
+  padding: 12px 22px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(219, 54, 84, 0.25);
+}
+.hero-cta-btn:hover {
+  background: #c22b46;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(219, 54, 84, 0.35);
+}
+
+/* KPI Top Grid */
+.donor-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.donor-kpi-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.donor-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(28, 57, 85, 0.08);
+}
+.kpi-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.kpi-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #7A8B9E;
+  display: block;
+  margin-bottom: 6px;
+}
+.kpi-metric-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.kpi-metric-val {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1D3043;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+.kpi-subtext {
+  font-size: 12px;
+  color: #7A8B9E;
+  margin-top: 6px;
+  display: block;
+}
+
+/* Middle Grid (Availability 2/3 + Spotlight 1/3) */
+.donor-mid-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* Availability Widget */
+.donor-availability-widget {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.avail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+.avail-card-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1D3043;
+  display: block;
+}
+.avail-card-subtitle {
+  font-size: 12px;
+  color: #7A8B9E;
+  margin-top: 4px;
+}
+.avail-status-pill {
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.5px;
+}
+.status-pill-available {
+  background: #E7F8F2;
+  color: #16A085;
+}
+.status-pill-unavailable {
+  background: #F1F5F9;
+  color: #64748B;
+}
+.avail-content-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex: 1;
+}
+.avail-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: #F8FAFC;
+  border-radius: 14px;
+  padding: 16px 20px;
+  flex: 1;
+}
+.avail-info-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+}
+.icon-emerald { color: #16A085; }
+.icon-slate { color: #94A3B8; }
+.avail-info-heading {
+  font-size: 16px;
+  font-weight: 750;
+  color: #1D3043;
+  margin: 0;
+}
+.avail-info-desc {
+  font-size: 12px;
+  color: #7A8B9E;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.avail-toggle-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+.avail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7A8B9E;
+}
+.toggle-switch-btn {
+  width: 84px;
+  height: 42px;
+  border-radius: 21px;
+  background: #CBD5E1;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  padding: 4px;
+  transition: background 0.25s ease;
+}
+.toggle-switch-btn.active {
+  background: #16A085;
+}
+.toggle-slider-knob {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  transform: translateX(0);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.toggle-switch-btn.active .toggle-slider-knob {
+  transform: translateX(42px);
+}
+.avail-subnote {
+  font-size: 11px;
+  color: #94A3B8;
+  text-align: center;
+}
+
+/* Spotlight Invitation Card */
+.donor-invitation-spotlight-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.spotlight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+}
+.spotlight-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1D3043;
+  margin: 0;
+}
+.spotlight-badge {
+  background: #FFF0F2;
+  color: #DB3654;
+  font-size: 11px;
+  font-weight: 750;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+.spotlight-facility {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.spotlight-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #FFF0F2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spotlight-facility-name {
+  font-size: 15px;
+  font-weight: 750;
+  color: #1D3043;
+  margin: 0;
+}
+.spotlight-location {
+  font-size: 12px;
+  color: #7A8B9E;
+}
+.spotlight-type-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.spotlight-blood-pill {
+  background: #FFF0F2;
+  color: #DB3654;
+  font-size: 13px;
+  font-weight: 750;
+  padding: 4px 12px;
+  border-radius: 14px;
+}
+.spotlight-appeal-type {
+  font-size: 13px;
+  color: #7A8B9E;
+  font-weight: 500;
+}
+.spotlight-action-btn {
+  background: #DB3654;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 750;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.spotlight-action-btn:hover {
+  background: #c22b46;
+}
+
+/* Bottom Grid (Journey 2/3 + Profile 1/3) */
+.donor-bottom-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+/* Journey Card */
+.donor-journey-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+}
+.journey-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.journey-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1D3043;
+  margin: 0;
+}
+.journey-subtitle {
+  font-size: 12px;
+  color: #7A8B9E;
+  margin-top: 4px;
+}
+.journey-badge-pill {
+  background: #F1F5F9;
+  color: #1D3043;
+  padding: 4px 14px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.journey-chart-wrapper {
+  position: relative;
+}
+.journey-svg {
+  width: 100%;
+  height: 180px;
+  overflow: visible;
+}
+.chart-node-group:hover circle {
+  r: 8px;
+  stroke-width: 4px;
+  cursor: pointer;
+}
+.journey-stats-footer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid #F1F5F9;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7A8B9E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stat-val {
+  font-size: 18px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.journey-empty-state {
+  text-align: center;
+  padding: 36px 20px;
+}
+.empty-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #FFF1F3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+.empty-heading {
+  font-size: 16px;
+  font-weight: 750;
+  color: #1D3043;
+}
+.empty-copy {
+  font-size: 13px;
+  color: #7A8B9E;
+  max-width: 420px;
+  margin: 6px auto 0;
+  line-height: 1.45;
+}
+
+/* Donor Profile Summary Card */
+.donor-profile-summary-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.profile-card-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1D3043;
+  margin: 0 0 16px 0;
+  width: 100%;
+  text-align: left;
+}
+.profile-avatar-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #FDECEF;
+  color: #DB3654;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(219, 54, 84, 0.12);
+}
+.profile-donor-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1D3043;
+  margin: 0 0 8px 0;
+}
+.profile-blood-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.profile-blood-pill {
+  background: #FFF0F2;
+  color: #DB3654;
+  font-size: 13px;
+  font-weight: 750;
+  padding: 3px 12px;
+  border-radius: 14px;
+}
+.medically-verified-badge {
+  background: #E8F8F3;
+  color: #0E7490;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+.profile-location-text {
+  font-size: 13px;
+  color: #7A8B9E;
+  margin: 0 0 16px 0;
+}
+.btn-edit-profile-link {
+  color: #DB3654;
+  font-size: 13px;
+  font-weight: 750;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.btn-edit-profile-link:hover {
+  background: #FFF0F2;
+}
+
+/* Next Review Card */
+.donor-review-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+}
+.donor-review-card.review-deferred {
+  border-left: 4px solid #F59E0B;
+}
+.donor-review-card.review-eligible {
+  border-left: 4px solid #10B981;
+}
+.donor-review-card.review-cooling {
+  border-left: 4px solid #3B82F6;
+}
+.review-card-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.review-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #F8FAFC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.review-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #7A8B9E;
+  letter-spacing: 0.5px;
+}
+.review-heading {
+  font-size: 16px;
+  font-weight: 750;
+  color: #1D3043;
+  margin: 2px 0 0;
+}
+.review-meta-grid {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.meta-col {
+  display: flex;
+  flex-direction: column;
+}
+.meta-label {
+  font-size: 11px;
+  color: #7A8B9E;
+  font-weight: 500;
+}
+.meta-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1D3043;
+  margin-top: 2px;
+}
+.review-deferral-box {
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #92400E;
+}
+.review-disclaimer-box {
+  padding-top: 10px;
+  border-top: 1px dashed #E2E8F0;
+}
+.disclaimer-copy {
+  font-size: 11px;
+  color: #94A3B8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Subpages General */
+.page-heading {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1D3043;
+  margin: 0;
+}
+.page-subheading {
+  font-size: 13px;
+  color: #7A8B9E;
+  margin-top: 4px;
+}
+.page-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* History Page */
+.history-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.hist-kpi-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hist-kpi-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hist-kpi-label {
+  font-size: 11px;
+  color: #7A8B9E;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: block;
+}
+.hist-kpi-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1D3043;
+}
+.history-controls-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.search-input-wrap {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 44px;
+}
+.history-search-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 13px;
+  color: #1D3043;
+}
+.filter-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 12px;
+  padding: 0 14px;
+  height: 44px;
+}
+.history-select {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: #1D3043;
+  font-weight: 500;
+  background: transparent;
+}
+.history-records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.donation-record-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 14px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.donation-record-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+}
+.record-main-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.record-date-block {
+  width: 60px;
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 8px 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+.rec-day { font-size: 18px; font-weight: 800; color: #1D3043; line-height: 1; }
+.rec-month { font-size: 11px; font-weight: 700; color: #DB3654; text-transform: uppercase; margin-top: 2px; }
+.rec-year { font-size: 10px; color: #94A3B8; }
+.rec-facility-name {
+  font-size: 15px;
+  font-weight: 750;
+  color: #1D3043;
+  margin: 0;
+}
+.rec-meta-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #7A8B9E;
+}
+.rec-status-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.rec-status-badge.verified {
+  background: #E8F8F3;
+  color: #065F46;
+}
+.record-status-col {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.rec-type-note {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+/* Invitation Cards in Notifications */
+.notifications-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.donor-invitation-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+}
+.donor-invitation-card.responded {
+  opacity: 0.85;
+  background: #FAFCFE;
+}
+.inv-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 16px;
+}
+.inv-facility-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.inv-facility-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #FFF0F2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.inv-facility-name {
+  font-size: 15px;
+  font-weight: 750;
+  color: #1D3043;
+  margin: 0;
+}
+.inv-area-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #7A8B9E;
+  margin-top: 2px;
+}
+.inv-badges-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.blood-type-pill {
+  background: #FFF0F2;
+  color: #DB3654;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+.urgency-pill {
+  font-size: 11px;
+  font-weight: 750;
+  padding: 3px 10px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+}
+.urgency-critical { background: #FEE2E2; color: #991B1B; }
+.urgency-urgent { background: #FFEDD5; color: #9A3412; }
+.urgency-routine { background: #E0F2FE; color: #075985; }
+.inv-body { margin-bottom: 16px; }
+.inv-title { font-size: 14px; font-weight: 750; color: #1D3043; margin: 0 0 4px; }
+.inv-message { font-size: 13px; color: #475569; line-height: 1.45; margin: 0; }
+.inv-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid #F1F5F9;
+}
+.inv-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-inv-interested {
+  background: #10B981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+.btn-inv-interested:hover { background: #059669; }
+.btn-inv-unavailable {
+  background: #F1F5F9;
+  color: #475569;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-inv-unavailable:hover { background: #E2E8F0; }
+.btn-inv-dismiss {
+  background: transparent;
+  color: #94A3B8;
+  border: none;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.btn-inv-dismiss:hover { color: #64748B; }
+
+/* Filter Pill Group */
+.filter-pill-group {
+  display: flex;
+  gap: 8px;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 12px;
+}
+.filter-tab-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.filter-tab-btn.active {
+  background: white;
+  color: #1D3043;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Appointments & Camps Grids */
+.appointments-list-grid, .camps-grid, .blood-banks-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+.appointment-card, .camp-card, .blood-bank-card {
+  background: white;
+  border: 1px solid #E8ECF2;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 14px rgba(28, 57, 85, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.appt-card-top, .camp-card-header, .bb-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.appt-status-pill {
+  font-size: 11px;
+  font-weight: 750;
+  padding: 4px 10px;
+  border-radius: 10px;
+}
+.status-booked { background: #EFF6FF; color: #1D4ED8; }
+.status-completed { background: #ECFDF5; color: #047857; }
+.status-cancelled { background: #FEF2F2; color: #B91C1C; }
+
+/* Modal */
+.modal-backdrop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 41, 61, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-content-card {
+  background: white;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  overflow: hidden;
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #F1F5F9;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1D3043;
+  margin: 0;
+}
+.btn-close-modal {
+  border: none;
+  background: #F1F5F9;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748B;
+}
+.modal-form-body {
+  padding: 24px;
+}
+.modal-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* Consent Preferences Form */
+.pref-section-group {
+  padding-bottom: 20px;
+}
+.pref-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.pref-group-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1D3043;
+  margin: 0;
+}
+.pref-group-desc {
+  font-size: 12px;
+  color: #7A8B9E;
+  margin-top: 2px;
+}
+.pref-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pref-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pref-row-item:hover {
+  background: #F1F5F9;
+}
+.pref-info {
+  display: flex;
+  flex-direction: column;
+  padding-right: 16px;
+}
+.pref-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1D3043;
+}
+.pref-detail {
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.toggle-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: #DB3654;
+  cursor: pointer;
+}
+
+/* Responsive Overrides */
+@media (max-width: 1024px) {
+  .donor-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .donor-mid-grid {
+    grid-template-columns: 1fr;
+  }
+  .donor-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+  .history-kpi-row {
+    grid-template-columns: 1fr;
+  }
+}
