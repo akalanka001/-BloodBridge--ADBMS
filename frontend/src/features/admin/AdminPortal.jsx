@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api.js';
 
-export function AdminPortal({ token }) {
+export function AdminPortal({ token, activeTab = 'overview' }) {
   const [pendingClaims, setPendingClaims] = useState([]);
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -39,6 +39,31 @@ export function AdminPortal({ token }) {
   useEffect(() => {
     if (token) loadData();
   }, [token]);
+
+  // Smoothly scroll to menu section when activeTab changes
+  useEffect(() => {
+    if (!activeTab || activeTab === 'overview') {
+      const mainArea = document.querySelector('.dash-main-area');
+      if (mainArea && typeof mainArea.scrollTo === 'function') {
+        mainArea.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+    const map = {
+      users: 'section-admin-users',
+      institutions: 'section-admin-overview',
+      analytics: 'section-admin-analytics',
+      benchmarks: 'section-admin-benchmarks',
+      etl: 'section-admin-etl',
+    };
+    const targetId = map[activeTab];
+    if (targetId) {
+      const el = document.getElementById(targetId);
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [activeTab]);
 
   const handleClaimDecision = async (claimId, approve) => {
     setError('');
@@ -74,7 +99,7 @@ export function AdminPortal({ token }) {
       {success && <div className="notice success" style={{ marginBottom: 20 }}>{success}</div>}
 
       {/* 4 KPI Stat Cards matching 05-admin-dashboard.svg */}
-      <div className="dash-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      <div className="dash-kpi-grid four-col" id="section-admin-overview">
         <div className="dash-kpi-card">
           <div className="dash-kpi-top">
             <div className="dash-kpi-icon pink">
@@ -121,7 +146,7 @@ export function AdminPortal({ token }) {
       </div>
 
       {/* Row 2: Monthly Trends Bar Chart & Demand by Blood Group */}
-      <div className="dash-two-col">
+      <div className="dash-two-col" id="section-admin-analytics">
         {/* Blood Request Trends Bar Chart */}
         <div className="dash-card">
           <div className="dash-card-header">
@@ -224,7 +249,7 @@ export function AdminPortal({ token }) {
       {/* Row 3: Database Performance Lab & Warehouse ETL Pipeline */}
       <div className="dash-two-col">
         {/* Database Performance Lab */}
-        <div className="dash-card">
+        <div className="dash-card" id="section-admin-benchmarks">
           <div className="dash-card-header">
             <div>
               <h2 className="dash-card-title">Database performance lab</h2>
@@ -277,7 +302,7 @@ export function AdminPortal({ token }) {
         </div>
 
         {/* Warehouse ETL Pipeline */}
-        <div className="dash-card">
+        <div className="dash-card" id="section-admin-etl">
           <div className="dash-card-header">
             <div>
               <h2 className="dash-card-title">Warehouse pipeline</h2>
@@ -379,7 +404,7 @@ export function AdminPortal({ token }) {
       </div>
 
       {/* Row 4: Pending Donor Link Claims Approval (Required by DomainPortals.test.jsx) */}
-      <div className="dash-card" style={{ marginTop: 24 }}>
+      <div className="dash-card" id="section-admin-users" style={{ marginTop: 24 }}>
         <div className="dash-card-header">
           <div>
             <h2 className="dash-card-title">Pending Donor Account Link Claims</h2>

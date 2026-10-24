@@ -121,8 +121,20 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       activeTab={activeNavTab}
       onTabChange={(tab) => {
         setActiveNavTab(tab);
-        if (type === 'bank' && ['intake', 'transfers', 'inventory'].includes(tab)) {
-          setBankTab(tab);
+        if (type === 'bank') {
+          if (['intake', 'transfers', 'inventory'].includes(tab)) {
+            setBankTab(tab);
+          } else if (tab === 'overview') {
+            setBankTab('inventory');
+          } else if (tab === 'expiry') {
+            setBankTab('inventory');
+            setTimeout(() => {
+              const el = document.getElementById('section-bank-expiry');
+              if (el && typeof el.scrollIntoView === 'function') {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 60);
+          }
         }
       }}
       onLogout={onLogout}
@@ -153,6 +165,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
         <DonorPortal
           profile={profile}
           token={token}
+          activeTab={activeNavTab}
           onProfileUpdate={(updated) => setProfile(updated)}
         />
       )}
@@ -161,6 +174,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       {type === 'hospital' && (
         <HospitalPortal
           token={token}
+          activeTab={activeNavTab}
           userHospitalId={session?.user?.hospitalId || 1}
         />
       )}
@@ -169,7 +183,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       {type === 'bank' && (
         <div className="bank-portal-view">
           {/* 3 KPI Stat Cards */}
-          <div className="dash-kpi-grid">
+          <div className="dash-kpi-grid three-col">
             <div className="dash-kpi-card">
               <div className="dash-kpi-top">
                 <div className="dash-kpi-icon pink">
@@ -279,7 +293,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
                 </div>
 
                 {/* Expiry Watch Card */}
-                <div className="dash-card">
+                <div className="dash-card" id="section-bank-expiry">
                   <div className="dash-card-header">
                     <div>
                       <h2 className="dash-card-title">Expiry watch</h2>
@@ -404,7 +418,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       )}
 
       {/* 4. ADMIN PORTAL */}
-      {type === 'admin' && <AdminPortal token={token} />}
+      {type === 'admin' && <AdminPortal token={token} activeTab={activeNavTab} />}
     </DashboardLayout>
   );
 }

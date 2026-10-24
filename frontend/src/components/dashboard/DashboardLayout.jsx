@@ -185,6 +185,10 @@ export function DashboardLayout({
             {/* Dashboard Navigation Breadcrumb/Link */}
             <a
               href={`#${role.toLowerCase().replace('_staff', '')}`}
+              onClick={(e) => {
+                e.preventDefault();
+                onTabChange('overview');
+              }}
               style={{
                 fontSize: 13,
                 fontWeight: 700,
@@ -193,6 +197,7 @@ export function DashboardLayout({
                 padding: '6px 12px',
                 borderRadius: 8,
                 background: '#F6F8FB',
+                cursor: 'pointer',
               }}
             >
               Dashboard

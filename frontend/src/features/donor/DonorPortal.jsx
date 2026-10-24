@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Heart,
   CheckCircle,
@@ -16,13 +16,40 @@ import {
 import { api } from '../../lib/api.js';
 import { navigate } from '../../lib/navigation.js';
 
-export function DonorPortal({ profile, token, onProfileUpdate }) {
+export function DonorPortal({ profile, token, onProfileUpdate, activeTab = 'overview' }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [claimDonorId, setClaimDonorId] = useState('');
   const [claimNotes, setClaimNotes] = useState('');
   const [showClaimForm, setShowClaimForm] = useState(false);
+
+  // Smooth scroll to target section when activeTab changes
+  useEffect(() => {
+    if (!activeTab || activeTab === 'overview') {
+      const mainArea = document.querySelector('.dash-main-area');
+      if (mainArea && typeof mainArea.scrollTo === 'function') {
+        mainArea.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+    if (activeTab === 'banks') {
+      navigate('camps');
+      return;
+    }
+    const map = {
+      donations: 'section-donor-journey',
+      appointments: 'section-donor-availability',
+      notifications: 'section-donor-availability',
+    };
+    const targetId = map[activeTab];
+    if (targetId) {
+      const el = document.getElementById(targetId);
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [activeTab]);
 
   const isAvailable = Boolean(profile?.available_for_contact);
   const isCampOptIn = Boolean(profile?.camp_notifications_opt_in);
@@ -89,7 +116,7 @@ export function DonorPortal({ profile, token, onProfileUpdate }) {
       {success && <div className="notice success" style={{ marginBottom: 20 }}>{success}</div>}
 
       {/* 3 KPI Stat Cards matching 02-donor-dashboard.svg */}
-      <div className="dash-kpi-grid">
+      <div className="dash-kpi-grid three-col" id="section-donor-kpis">
         <div className="dash-kpi-card">
           <div className="dash-kpi-top">
             <div className="dash-kpi-icon pink">
@@ -127,7 +154,7 @@ export function DonorPortal({ profile, token, onProfileUpdate }) {
       </div>
 
       {/* Row 2: Availability Control & New Invitation */}
-      <div className="dash-two-col">
+      <div className="dash-two-col" id="section-donor-availability">
         {/* Availability Control Card */}
         <div className="dash-card">
           <div className="dash-card-header">
@@ -275,7 +302,7 @@ export function DonorPortal({ profile, token, onProfileUpdate }) {
       </div>
 
       {/* Row 3: Donation Journey Timeline & Profile Card */}
-      <div className="dash-two-col">
+      <div className="dash-two-col" id="section-donor-journey">
         {/* Donation Journey Timeline Chart */}
         <div className="dash-card">
           <div className="dash-card-header">

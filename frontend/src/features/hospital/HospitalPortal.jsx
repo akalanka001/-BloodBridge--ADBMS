@@ -12,12 +12,35 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api.js';
 
-export function HospitalPortal({ token, userHospitalId = 1, showNewForm = false, onCloseForm = () => {} }) {
+export function HospitalPortal({ token, userHospitalId = 1, showNewForm = false, onCloseForm = () => {}, activeTab = 'overview' }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [openForm, setOpenForm] = useState(showNewForm);
+
+  // Smooth scroll to target section when activeTab changes
+  useEffect(() => {
+    if (!activeTab || activeTab === 'overview') {
+      const mainArea = document.querySelector('.dash-main-area');
+      if (mainArea && typeof mainArea.scrollTo === 'function') {
+        mainArea.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+    if (activeTab === 'requests') {
+      setOpenForm(true);
+      const el = document.getElementById('section-hospital-requests');
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else if (activeTab === 'donors') {
+      const el = document.getElementById('section-hospital-requests');
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [activeTab]);
 
   const [form, setForm] = useState({
     bloodTypeCode: 'O+',
@@ -94,7 +117,7 @@ export function HospitalPortal({ token, userHospitalId = 1, showNewForm = false,
       {success && <div className="notice success" style={{ marginBottom: 20 }}>{success}</div>}
 
       {/* 3 KPI Stat Cards matching 03-hospital-dashboard.svg */}
-      <div className="dash-kpi-grid">
+      <div className="dash-kpi-grid three-col" id="section-hospital-kpis">
         <div className="dash-kpi-card">
           <div className="dash-kpi-top">
             <div className="dash-kpi-icon pink">
@@ -248,7 +271,7 @@ export function HospitalPortal({ token, userHospitalId = 1, showNewForm = false,
       )}
 
       {/* Row 2: Recent Blood Requests & Matching Overview */}
-      <div className="dash-two-col">
+      <div className="dash-two-col" id="section-hospital-requests">
         {/* Recent Blood Requests Table */}
         <div className="dash-card">
           <div className="dash-card-header">
