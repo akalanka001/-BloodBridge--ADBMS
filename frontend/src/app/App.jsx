@@ -109,6 +109,19 @@ export default function App() {
     navigate('home');
   };
 
+  const isPortal = ['donor', 'hospital', 'bank', 'admin'].includes(page);
+
+  if (isPortal) {
+    return (
+      <Portal
+        type={page}
+        session={session}
+        token={session?.token}
+        onLogout={logout}
+      />
+    );
+  }
+
   return (
     <>
       <Navbar
@@ -144,10 +157,6 @@ export default function App() {
             loading={loading}
             error={error}
           />
-        )}
-
-        {['donor', 'hospital', 'bank', 'admin'].includes(page) && (
-          <Portal type={page} session={session} token={session?.token} />
         )}
 
         {page === 'signup' && <RegisterPage districts={districts} onDone={() => navigate('login')} />}

@@ -182,6 +182,22 @@ export function DashboardLayout({
           </div>
 
           <div className="dash-topbar-actions">
+            {/* Dashboard Navigation Breadcrumb/Link */}
+            <a
+              href={`#${role.toLowerCase().replace('_staff', '')}`}
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#1D3043',
+                textDecoration: 'none',
+                padding: '6px 12px',
+                borderRadius: 8,
+                background: '#F6F8FB',
+              }}
+            >
+              Dashboard
+            </a>
+
             {/* Notification Bell */}
             <button
               type="button"
@@ -191,6 +207,36 @@ export function DashboardLayout({
             >
               <Bell size={18} />
               <span className="dash-badge-dot" />
+            </button>
+
+            {/* User Info & Badge */}
+            {user && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#1D3043' }}>
+                  {user.fullName || user.full_name}
+                </span>
+                <span className="dash-pill-badge red" style={{ fontSize: 10, padding: '2px 8px' }}>
+                  {role}
+                </span>
+              </div>
+            )}
+
+            {/* Direct Log out action button */}
+            <button
+              type="button"
+              className="reg-btn-outline"
+              style={{
+                minHeight: 36,
+                padding: '0 14px',
+                fontSize: 12,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+              onClick={onLogout}
+            >
+              <LogOut size={14} />
+              <span>Log out</span>
             </button>
 
             {/* User Dropdown */}
