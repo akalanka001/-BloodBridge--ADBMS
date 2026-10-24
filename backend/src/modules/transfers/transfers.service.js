@@ -1,4 +1,5 @@
 import { transfersRepository } from './transfers.repository.js';
+import { NotFoundError } from '../../infrastructure/errors.js';
 
 export class TransfersService {
   async createTransfer(data, requestedBy) {
@@ -7,6 +8,14 @@ export class TransfersService {
 
   async getTransfers(bankId) {
     return transfersRepository.listTransfers(bankId);
+  }
+
+  async getTransferById(transferId) {
+    const transfer = await transfersRepository.getTransferById(transferId);
+    if (!transfer) {
+      throw new NotFoundError('Inter-bank transfer not found');
+    }
+    return transfer;
   }
 
   async dispatchTransfer(transferId, actorId) {

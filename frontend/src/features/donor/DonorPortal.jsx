@@ -6,6 +6,7 @@ import { DonationHistoryPage } from './pages/DonationHistoryPage.jsx';
 import { DonorAppointmentsPage } from './pages/DonorAppointmentsPage.jsx';
 import { FindBloodBanksPage } from './pages/FindBloodBanksPage.jsx';
 import { FindCampsPage } from './pages/FindCampsPage.jsx';
+import { DonorRegistrationsPage } from './pages/DonorRegistrationsPage.jsx';
 import { DonorNotificationsPage } from './pages/DonorNotificationsPage.jsx';
 import { DonorProfilePage } from './pages/DonorProfilePage.jsx';
 import { PrivacyPreferencesPage } from './pages/PrivacyPreferencesPage.jsx';
@@ -197,6 +198,7 @@ export function DonorPortal({
           )}
 
           {activeTab === 'camps' && <FindCampsPage token={token} />}
+          {activeTab === 'registrations' && <DonorRegistrationsPage token={token} />}
 
           {activeTab === 'notifications' && (
             <DonorNotificationsPage
