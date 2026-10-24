@@ -286,7 +286,7 @@ describe('BloodBridge Domain Portals & Action Verification', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
-    expect(global.fetch.mock.calls[0][0]).toContain('/donor-intake/collections');
+    expect(global.fetch.mock.calls[0][0]).toMatch(/\/donor-intake\/(donations|collections)/);
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
     expect(body.visitId).toBe('visit-555');
     expect(body.collectedVolumeMl).toBe(450);

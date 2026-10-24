@@ -185,6 +185,56 @@ export class IntakeRepository {
       return donRows[0] || { id: donationId, donor_id: donorId, blood_bank_id: bloodBankId };
     });
   }
+
+  async listVisits(bankId = null, limit = 50) {
+    const params = [limit];
+    let where = '';
+    if (bankId) {
+      params.push(bankId);
+      where = 'WHERE dv.blood_bank_id = $2';
+    }
+    const { rows } = await pool.query(
+      `SELECT dv.*,
+              COALESCE(d.full_name, u.full_name) AS donor_name,
+              d.blood_type_code,
+              bb.name AS blood_bank_name,
+              da.status AS assessment_status
+       FROM donor_visits dv
+       JOIN donors d ON d.id = dv.donor_id
+       LEFT JOIN users u ON u.id = d.user_id
+       LEFT JOIN blood_banks bb ON bb.id = dv.blood_bank_id
+       LEFT JOIN donor_assessments da ON da.visit_id = dv.id
+       ${where}
+       ORDER BY dv.visit_date DESC
+       LIMIT $1`,
+      params,
+    );
+    return rows;
+  }
+
+  async listDonations(bankId = null, limit = 50) {
+    const params = [limit];
+    let where = '';
+    if (bankId) {
+      params.push(bankId);
+      where = 'WHERE don.blood_bank_id = $2';
+    }
+    const { rows } = await pool.query(
+      `SELECT don.*,
+              COALESCE(d.full_name, u.full_name) AS donor_name,
+              d.blood_type_code,
+              bb.name AS blood_bank_name
+       FROM donations don
+       JOIN donors d ON d.id = don.donor_id
+       LEFT JOIN users u ON u.id = d.user_id
+       LEFT JOIN blood_banks bb ON bb.id = don.blood_bank_id
+       ${where}
+       ORDER BY don.collected_at DESC
+       LIMIT $1`,
+      params,
+    );
+    return rows;
+  }
 }
 
 export const intakeRepository = new IntakeRepository();
