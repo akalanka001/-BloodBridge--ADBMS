@@ -25,6 +25,9 @@ import {
   User,
   Sliders,
   Settings,
+  Siren,
+  Truck,
+  PlusCircle,
 } from 'lucide-react';
 import { navigate } from '../../lib/navigation.js';
 
@@ -70,8 +73,12 @@ export function DashboardLayout({
       menu: [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'requests', label: 'Blood requests', icon: FileText },
+        { id: 'new-request', label: 'New request', icon: PlusCircle },
         { id: 'donors', label: 'Find donors', icon: Search },
         { id: 'banks', label: 'Blood banks', icon: Building2 },
+        { id: 'emergency', label: 'Emergency appeals', icon: Siren },
+        { id: 'tracking', label: 'Request tracking', icon: Truck },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'reports', label: 'Reports', icon: TrendingUp },
       ],
       defaultAction: { label: 'New blood request', onClick: () => onTabChange('new-request') },

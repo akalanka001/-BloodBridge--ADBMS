@@ -2196,3 +2196,63 @@
     grid-template-columns: 1fr;
   }
 }
+
+.hospital-portal-view .form-grid {
+  align-items: start;
+}
+
+.hospital-portal-view .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.hospital-portal-view .data-table th,
+.hospital-portal-view .data-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e8edf3;
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+.hospital-portal-view .data-table th {
+  color: #667085;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.hospital-portal-view .empty-state {
+  border: 1px dashed #d7dee8;
+  border-radius: 10px;
+  color: #667085;
+  margin-top: 16px;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.hospital-portal-view .dash-list-row {
+  align-items: center;
+  border-bottom: 1px solid #e8edf3;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 0;
+}
+
+@media (max-width: 700px) {
+  .hospital-portal-view .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hospital-portal-view .form-grid label[style*="grid-column"] {
+    grid-column: auto !important;
+  }
+
+  .hospital-portal-view .dash-list-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}

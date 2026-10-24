@@ -175,7 +175,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
         <HospitalPortal
           token={token}
           activeTab={activeNavTab}
-          userHospitalId={session?.user?.hospitalId || 1}
+          userHospitalId={session?.user?.hospitalId || null}
         />
       )}
 
