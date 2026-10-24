@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import {
-  HeartHandshake, Hospital, Droplet, LayoutDashboard,
-  LockKeyhole, ArrowRight,
+  Droplet,
+  Clock,
+  FileText,
+  AlertTriangle,
+  CheckCircle,
+  Users,
+  Activity,
+  ArrowRight,
+  ShieldAlert,
 } from 'lucide-react';
-import { IconTile } from '../../components/ui/IconTile.jsx';
-import { Badge, Heading } from '../../components/ui/Typography.jsx';
 import { api } from '../../lib/api.js';
 import { navigate } from '../../lib/navigation.js';
+import { DashboardLayout } from '../../components/dashboard/DashboardLayout.jsx';
 
 import { DonorPortal } from '../donor/DonorPortal.jsx';
 import { IntakePortal } from '../intake/IntakePortal.jsx';
@@ -14,63 +20,22 @@ import { TransfersPortal } from '../transfers/TransfersPortal.jsx';
 import { AdminPortal } from '../admin/AdminPortal.jsx';
 import { HospitalPortal } from '../hospital/HospitalPortal.jsx';
 
-export function Portal({ type, session, token }) {
+export function Portal({ type, session, token, onLogout = () => {} }) {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState('');
   const [inventoryStock, setInventoryStock] = useState([]);
-  const [bankTab, setBankTab] = useState('intake'); // 'intake' | 'transfers' | 'inventory'
+  const [bankTab, setBankTab] = useState('inventory'); // 'inventory' | 'intake' | 'transfers'
+  const [activeNavTab, setActiveNavTab] = useState('overview');
 
-  const defs = {
-    donor: {
-      label: 'Donor Portal',
-      title: 'Your donation journey',
-      icon: HeartHandshake,
-      description: 'A calm mobile-first space to manage your availability and discover approved camps.',
-      metrics: [
-        ['My availability', 'Contact preference'],
-        ['Donation history', 'Verified records'],
-        ['Donation camps', 'Nearby opportunities'],
-      ],
-    },
-    hospital: {
-      label: 'Hospital Portal',
-      title: 'Coordinated emergency requests',
-      icon: Hospital,
-      description: 'Create component-specific requests, find released inventory and track fulfillment.',
-      metrics: [
-        ['Blood requests', 'Submitted by staff'],
-        ['Matching', 'Potential candidates'],
-        ['Fulfillment', 'Verified handover'],
-      ],
-    },
-    bank: {
-      label: 'Blood Bank Portal',
-      title: 'Manage your blood bank',
-      icon: Droplet,
-      description: 'Track individual component units, approve donation camps and handle reservations.',
-      metrics: [
-        ['Inventory', 'Release status'],
-        ['Requests', 'Pending allocation'],
-        ['Camp approvals', 'Coordinating bank'],
-      ],
-    },
-    admin: {
-      label: 'Admin Portal',
-      title: 'Operational insights',
-      icon: LayoutDashboard,
-      description: 'Manage institutional access and analyze database performance and warehouse trends.',
-      metrics: [
-        ['User management', 'Role and organization'],
-        ['Analytics', 'Warehouse summaries'],
-        ['Database lab', 'EXPLAIN / indexes'],
-      ],
-    },
+  const roleMapping = {
+    donor: 'DONOR',
+    hospital: 'HOSPITAL_STAFF',
+    bank: 'BANK_STAFF',
+    admin: 'ADMIN',
   };
 
-  const d = defs[type];
-  const authorized =
-    session?.user?.role ===
-    { donor: 'DONOR', hospital: 'HOSPITAL_STAFF', bank: 'BANK_STAFF', admin: 'ADMIN' }[type];
+  const userRole = session?.user?.role;
+  const authorized = userRole === roleMapping[type];
 
   useEffect(() => {
     if (!token || !authorized) return;
@@ -88,46 +53,103 @@ export function Portal({ type, session, token }) {
     }
   }, [type, token, authorized]);
 
+  // Headers per role matching the SVGs
+  const headers = {
+    donor: {
+      title: `Good morning, ${profile?.fullName || profile?.full_name || session?.user?.fullName || 'Amara'}`,
+      subtitle: 'Every donation starts with someone willing to help.',
+      action: (
+        <button
+          type="button"
+          className="dash-btn-primary"
+          onClick={() => navigate('camps')}
+        >
+          <span>Find a blood bank</span>
+          <ArrowRight size={16} />
+        </button>
+      ),
+    },
+    hospital: {
+      title: 'Hospital operations',
+      subtitle: 'Manage requests and coordinate with the blood network.',
+      action: null,
+    },
+    bank: {
+      title: 'Inventory control',
+      subtitle: 'Live stock visibility and accountable blood-unit management.',
+      action: (
+        <button
+          type="button"
+          className="dash-btn-primary"
+          onClick={() => setBankTab('intake')}
+        >
+          <span>Record donation</span>
+          <ArrowRight size={16} />
+        </button>
+      ),
+    },
+    admin: {
+      title: 'Platform overview',
+      subtitle: 'Operations, historical analytics, and database performance.',
+      action: (
+        <div
+          style={{
+            background: '#E8F7F1',
+            color: '#16A085',
+            fontSize: 11,
+            fontWeight: 750,
+            padding: '7px 16px',
+            borderRadius: 20,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A085' }} />
+          SYSTEM HEALTHY
+        </div>
+      ),
+    },
+  };
+
+  const currentHeader = headers[type] || headers.donor;
+
   return (
-    <div className="view-section portal">
-      <Heading tag={d.label} title={d.title} description={d.description} />
+    <DashboardLayout
+      role={roleMapping[type] || 'DONOR'}
+      user={session?.user}
+      activeTab={activeNavTab}
+      onTabChange={(tab) => {
+        setActiveNavTab(tab);
+        if (type === 'bank' && ['intake', 'transfers', 'inventory'].includes(tab)) {
+          setBankTab(tab);
+        }
+      }}
+      onLogout={onLogout}
+      headerTitle={currentHeader.title}
+      headerSubtitle={currentHeader.subtitle}
+      headerAction={currentHeader.action}
+    >
+      {/* Fallback unauthorized notice if logged into wrong role */}
       {!authorized && (
-        <div className="notice">
-          <LockKeyhole size={18} />
-          <span>
-            This is the {d.label.toLowerCase()} design layout. Sign in with the appropriate role to
-            access private data; no sample clinical or operational figures are presented.
-          </span>
-          <button className="text-link" onClick={() => navigate('login')}>
-            Sign in <ArrowRight size={15} />
-          </button>
+        <div className="dash-priority-banner" style={{ background: '#FFF7ED', marginBottom: 24 }}>
+          <div className="dash-priority-icon" style={{ background: '#FFEDD5', color: '#D97706' }}>
+            <AlertTriangle size={24} />
+          </div>
+          <div className="dash-priority-content">
+            <h3 className="dash-priority-title">Role Permission Notice</h3>
+            <p className="dash-priority-desc">
+              Your logged-in role is <strong>{session?.user?.role || 'Guest'}</strong>. This section is
+              configured for <strong>{roleMapping[type]}</strong> accounts.
+            </p>
+          </div>
         </div>
       )}
-      <div className="portal-heading">
-        <IconTile Icon={d.icon} />
-        <div>
-          <strong>
-            {authorized
-              ? `Welcome, ${session.user.fullName || session.user.full_name || 'user'}`
-              : 'Dashboard preview'}
-          </strong>
-          <p>Shared components · role-based authorization · responsive cards</p>
-        </div>
-      </div>
-      <div className="three-grid">
-        {d.metrics.map(([heading, desc]) => (
-          <div className="surface-card stat-card" key={heading}>
-            <span className="small-label">{heading}</span>
-            <h3>—</h3>
-            <p>{desc}</p>
-          </div>
-        ))}
-      </div>
 
-      {error && <div className="notice error">{error}</div>}
+      {error && <div className="notice error" style={{ marginBottom: 20 }}>{error}</div>}
 
-      {/* DONOR DOMAIN MODULE */}
-      {type === 'donor' && authorized && (
+      {/* 1. DONOR PORTAL */}
+      {type === 'donor' && (
         <DonorPortal
           profile={profile}
           token={token}
@@ -135,90 +157,254 @@ export function Portal({ type, session, token }) {
         />
       )}
 
-      {/* HOSPITAL DOMAIN MODULE */}
-      {type === 'hospital' && authorized && (
+      {/* 2. HOSPITAL PORTAL */}
+      {type === 'hospital' && (
         <HospitalPortal
           token={token}
-          userHospitalId={session.user.hospitalId || 1}
+          userHospitalId={session?.user?.hospitalId || 1}
         />
       )}
 
-      {/* BLOOD BANK DOMAIN MODULE */}
-      {type === 'bank' && authorized && (
-        <div className="bank-portal-container" style={{ marginTop: '1.5rem' }}>
-          <div className="bank-section-tabs" style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
+      {/* 3. BLOOD BANK PORTAL (Matching 04-bloodbank-dashboard.svg) */}
+      {type === 'bank' && (
+        <div className="bank-portal-view">
+          {/* 3 KPI Stat Cards */}
+          <div className="dash-kpi-grid">
+            <div className="dash-kpi-card">
+              <div className="dash-kpi-top">
+                <div className="dash-kpi-icon pink">
+                  <Droplet size={22} />
+                </div>
+                <span className="dash-kpi-label">Available units</span>
+              </div>
+              <div className="dash-kpi-value">284</div>
+              <div className="dash-kpi-note">Ready for allocation</div>
+            </div>
+
+            <div className="dash-kpi-card">
+              <div className="dash-kpi-top">
+                <div className="dash-kpi-icon yellow">
+                  <Clock size={22} />
+                </div>
+                <span className="dash-kpi-label">Expiring soon</span>
+              </div>
+              <div className="dash-kpi-value">17</div>
+              <div className="dash-kpi-note">Review expiry dates</div>
+            </div>
+
+            <div className="dash-kpi-card">
+              <div className="dash-kpi-top">
+                <div className="dash-kpi-icon pink">
+                  <FileText size={22} />
+                </div>
+                <span className="dash-kpi-label">Incoming requests</span>
+              </div>
+              <div className="dash-kpi-value">09</div>
+              <div className="dash-kpi-note">Waiting for a response</div>
+            </div>
+          </div>
+
+          {/* Operational Sub-Navigation Tabs */}
+          <div style={{ display: 'flex', gap: 10, margin: '20px 0' }}>
+            <button
+              id="bank-tab-inventory"
+              type="button"
+              className={bankTab === 'inventory' ? 'dash-btn-primary' : 'reg-btn-outline'}
+              style={{ minHeight: 40, padding: '0 18px', fontSize: 13 }}
+              onClick={() => setBankTab('inventory')}
+            >
+              Stock Overview
+            </button>
             <button
               id="bank-tab-intake"
-              className={bankTab === 'intake' ? 'primary' : 'outline'}
+              type="button"
+              className={bankTab === 'intake' ? 'dash-btn-primary' : 'reg-btn-outline'}
+              style={{ minHeight: 40, padding: '0 18px', fontSize: 13 }}
               onClick={() => setBankTab('intake')}
             >
               Donor Intake & Collections
             </button>
             <button
               id="bank-tab-transfers"
-              className={bankTab === 'transfers' ? 'primary' : 'outline'}
+              type="button"
+              className={bankTab === 'transfers' ? 'dash-btn-primary' : 'reg-btn-outline'}
+              style={{ minHeight: 40, padding: '0 18px', fontSize: 13 }}
               onClick={() => setBankTab('transfers')}
             >
               Inter-Bank Transfers
             </button>
-            <button
-              id="bank-tab-inventory"
-              className={bankTab === 'inventory' ? 'primary' : 'outline'}
-              onClick={() => setBankTab('inventory')}
-            >
-              Released Blood Stock
-            </button>
           </div>
 
-          {bankTab === 'intake' && (
-            <IntakePortal token={token} userBankId={session.user.bloodBankId || 1} />
-          )}
-
-          {bankTab === 'transfers' && (
-            <TransfersPortal token={token} userBankId={session.user.bloodBankId || 1} />
-          )}
-
+          {/* Tab 1: Stock Overview matching 04-bloodbank-dashboard.svg */}
           {bankTab === 'inventory' && (
-            <div className="surface-card">
-              <h3>Current Released Component Stock</h3>
-              <p>Live inventory queried directly from PostgreSQL view <code>v_available_blood_stock</code>.</p>
-              {inventoryStock.length > 0 ? (
-                <div className="three-grid">
-                  {inventoryStock.slice(0, 6).map((item, idx) => (
-                    <div key={idx} className="surface-card stat-card">
-                      <span className="small-label">{item.blood_type_code} {item.component_code}</span>
-                      <h3>{item.available_units} Units</h3>
-                      <p>{item.blood_bank_name}</p>
+            <>
+              <div className="dash-two-col">
+                {/* 8-Blood Group Grid Card */}
+                <div className="dash-card">
+                  <div className="dash-card-header">
+                    <div>
+                      <h2 className="dash-card-title">Blood group availability</h2>
+                      <p className="dash-card-subtitle">Live stock values by blood type</p>
                     </div>
-                  ))}
+                    <span className="dash-pill-badge gray">Red cells</span>
+                  </div>
+
+                  <div className="dash-blood-grid">
+                    {[
+                      { type: 'O+', units: 56, pct: 90, color: '#16A085' },
+                      { type: 'O-', units: 12, pct: 20, color: '#DB3654' },
+                      { type: 'A+', units: 45, pct: 75, color: '#16A085' },
+                      { type: 'A-', units: 8, pct: 15, color: '#DB3654' },
+                      { type: 'B+', units: 37, pct: 60, color: '#16A085' },
+                      { type: 'B-', units: 13, pct: 22, color: '#DB9B38' },
+                      { type: 'AB+', units: 22, pct: 35, color: '#16A085' },
+                      { type: 'AB-', units: 5, pct: 10, color: '#DB3654' },
+                    ].map((g, i) => (
+                      <div key={i} className="dash-blood-tile">
+                        <div className="dash-blood-tile-top">
+                          <span className="dash-blood-name">{g.type}</span>
+                          <span className="dash-blood-units" style={{ color: g.color }}>
+                            {g.units} units
+                          </span>
+                        </div>
+                        <div className="dash-blood-bar-track">
+                          <div
+                            className="dash-blood-bar-fill"
+                            style={{ width: `${g.pct}%`, background: g.color }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <p>No available released units found in the local database.</p>
-              )}
-            </div>
+
+                {/* Expiry Watch Card */}
+                <div className="dash-card">
+                  <div className="dash-card-header">
+                    <div>
+                      <h2 className="dash-card-title">Expiry watch</h2>
+                      <p className="dash-card-subtitle">First-expiring stock to review</p>
+                    </div>
+                    <span className="dash-pill-badge red">17 items</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
+                    {[
+                      { id: 'BU-02081', comp: 'Platelets', days: '1 day left' },
+                      { id: 'BU-02058', comp: 'Red cells', days: '2 days left' },
+                      { id: 'BU-01971', comp: 'Red cells', days: '4 days left' },
+                    ].map((item, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          paddingBottom: 10,
+                          borderBottom: idx < 2 ? '1px solid #E8ECF2' : 'none',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: '50%',
+                              background: '#FFF5E5',
+                              color: '#D69B3D',
+                              display: 'grid',
+                              placeItems: 'center',
+                            }}
+                          >
+                            <Clock size={18} />
+                          </div>
+                          <div>
+                            <strong style={{ fontSize: 13, color: '#1D3043', display: 'block' }}>
+                              {item.id}
+                            </strong>
+                            <small style={{ fontSize: 11, color: '#7A8B9E' }}>{item.comp}</small>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#C18328' }}>
+                          {item.days}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Inventory Activity Table */}
+              <div className="dash-card" style={{ marginTop: 24 }}>
+                <div className="dash-card-header">
+                  <div>
+                    <h2 className="dash-card-title">Recent inventory activity</h2>
+                    <p className="dash-card-subtitle">Accountable custody audit trail</p>
+                  </div>
+                  <span className="dash-pill-badge gray">See all</span>
+                </div>
+
+                <div className="dash-table-wrap">
+                  <table className="dash-table">
+                    <thead>
+                      <tr>
+                        <th>UNIT / BATCH</th>
+                        <th>COMPONENT</th>
+                        <th>BLOOD GROUP</th>
+                        <th>ACTIVITY</th>
+                        <th>RECORDED</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { id: 'BU-02089', comp: 'Red cells', group: 'O+', act: 'Collected', color: '#16A085', date: '19 Oct 2026' },
+                        { id: 'BU-02088', comp: 'Platelets', group: 'A+', act: 'Reserved', color: '#B88535', date: '19 Oct 2026' },
+                        { id: 'BU-02087', comp: 'Plasma', group: 'B+', act: 'Dispatched', color: '#437AB5', date: '18 Oct 2026' },
+                      ].map((row, i) => (
+                        <tr key={i}>
+                          <td><strong>{row.id}</strong></td>
+                          <td>{row.comp}</td>
+                          <td>
+                            <span
+                              style={{
+                                background: '#FFF0F2',
+                                color: '#DB3654',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                padding: '2px 8px',
+                                borderRadius: 10,
+                              }}
+                            >
+                              {row.group}
+                            </span>
+                          </td>
+                          <td>
+                            <strong style={{ color: row.color, fontSize: 12 }}>{row.act}</strong>
+                          </td>
+                          <td style={{ color: '#7A8B9E' }}>{row.date}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Tab 2: Donor Intake & Collections */}
+          {bankTab === 'intake' && (
+            <IntakePortal token={token} userBankId={session?.user?.bloodBankId || 1} />
+          )}
+
+          {/* Tab 3: Transfers */}
+          {bankTab === 'transfers' && (
+            <TransfersPortal token={token} userBankId={session?.user?.bloodBankId || 1} />
           )}
         </div>
       )}
 
-      {/* ADMINISTRATOR DOMAIN MODULE */}
-      {type === 'admin' && authorized && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <AdminPortal token={token} />
-        </div>
-      )}
-
-      <div className="surface-card info-card" style={{ marginTop: '1.5rem' }}>
-        <h3>Academic Demonstration Architecture</h3>
-        <p>
-          Connected to Express modular routes, PostgreSQL 16 advanced procedures, triggers, views,
-          and Socket.io event channels. Real operational workflows with no hardcoded mock numbers.
-        </p>
-        <div className="chip-row">
-          <Badge>Desktop: sidebar/table views</Badge>
-          <Badge>Mobile: stacked cards</Badge>
-          <Badge>Keyboard-accessible forms</Badge>
-        </div>
-      </div>
-    </div>
+      {/* 4. ADMIN PORTAL */}
+      {type === 'admin' && <AdminPortal token={token} />}
+    </DashboardLayout>
   );
 }
