@@ -8,12 +8,21 @@
 |---|---|---|---|
 | GET | `/health` (not under `/api/v1`) | Public | Returns DB connectivity; 503 if DB unavailable |
 | GET | `/api/v1` | Public | Service identity and status |
-| POST | `/auth/register-donor` | Public | Creates `users` + `donors` in **one transaction**; 201; does not log in |
-| POST | `/auth/login` | Public | Returns token and user; 401 on failure |
-| GET | `/auth/me` | Logged-in | Verifies account remains active |
-| GET | `/locations/provinces` | Public | Province codes and names |
-| GET | `/locations/districts?provinceCode=WP` | Public | Province filter optional |
-| GET | `/locations/ds-divisions?districtCode=CO` | Public | District filter required |
+| POST | `/auth/register-donor` | Public | Creates `users` + `donors` in **one transaction**; validates age >= 18 & weight >= 50 kg; 201 |
+| POST | `/auth/login` | Public | Authenticates email case-insensitively; creates active session; returns JWT and rotating refresh token |
+| POST | `/auth/refresh` | Public | Rotates hashed refresh token and issues fresh short-lived access token |
+| POST | `/auth/logout` | Public | Revokes session token in database |
+| GET | `/auth/me` | Logged-in | Returns full user profile, role, email status, and donor/membership details |
+| GET | `/auth/memberships` | Logged-in | Returns assigned hospital / blood bank institutional memberships |
+| POST | `/auth/forgot-password` | Public | Dispatches single-use hashed password reset token (1 hr expiry) |
+| POST | `/auth/reset-password` | Public | Verifies token, updates password hash, and revokes prior active sessions |
+| POST | `/auth/verify-email` | Public | Verifies single-use email token and marks account verified |
+| POST | `/auth/invite-staff` | Admin | Grants specific role & hospital/blood bank association; generates invitation token |
+| POST | `/auth/accept-invite` | Public | Redeems invitation token and registers authorized staff account |
+| GET | `/locations/provinces` | Public | Sri Lanka provinces (all 9 seeded) |
+| GET | `/locations/districts?provinceCode=WP` | Public | Sri Lanka districts (all 25 seeded), optional provinceCode filter |
+| GET | `/locations/ds-divisions?districtCode=CO` | Public | DS divisions for district; validates province scoping if provided |
+| GET | `/locations/gn-divisions?districtCode=CO&dsCode=MAH` | Public | Verified sample GN divisions; returns `{ data: [] }` gracefully when unseeded |
 | GET | `/donors/me` | Donor | Profile + donation count |
 | PATCH | `/donors/me/preferences` | Donor | Availability and camp opt-in |
 | GET | `/camps?districtCode=CO` | Public | Reads `v_public_donation_camps`; only approved future camps |
