@@ -2,6 +2,14 @@ import { pool, inTransaction } from '../../db.js';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../../infrastructure/errors.js';
 
 export class InventoryRepository {
+  async getDonationById(donationId) {
+    const { rows } = await pool.query(
+      `SELECT * FROM donations WHERE id = $1`,
+      [donationId],
+    );
+    return rows[0] || null;
+  }
+
   async getStockSummary(userId, role, bankId = null) {
     const params = [];
     let where = '';
@@ -30,7 +38,7 @@ export class InventoryRepository {
     const params = [];
     let idx = 1;
 
-    // Scope to bank
+    // Scope strictly to bank
     const targetBankId = bankId || filters.bloodBankId;
     if (targetBankId) {
       conditions.push(`bu.blood_bank_id = $${idx++}`);

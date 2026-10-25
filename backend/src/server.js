@@ -21,6 +21,7 @@ import mediaRoutes from './modules/media/media.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import { bankController } from './modules/bank/bank.controller.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -57,6 +58,7 @@ app.use('/api/v1/fulfillments', fulfillmentRoutes);
 app.use('/api/v1/emergency-appeals', appealsRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
 app.use('/api/v1/bank', bankRoutes);
+app.get('/api/v1/blood-banks', (req, res, next) => bankController.getVerifiedBloodBanks(req, res, next));
 app.use('/api/v1/transfers', transferRoutes);
 app.use('/api/v1/camps', campRoutes);
 app.use('/api/v1/media', mediaRoutes);

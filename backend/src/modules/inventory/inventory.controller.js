@@ -10,7 +10,7 @@ export class InventoryController {
   async getSummary(req, res, next) {
     try {
       const bankId = req.query.bankId || req.query.bloodBankId;
-      const data = await inventoryService.getStockSummary(req.user.id, req.user.role, bankId);
+      const data = await inventoryService.getStockSummary(req.user, bankId);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -29,7 +29,7 @@ export class InventoryController {
 
   async getUnitById(req, res, next) {
     try {
-      const data = await inventoryService.getUnitById(req.params.id);
+      const data = await inventoryService.getUnitById(req.params.id, req.user);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -59,7 +59,7 @@ export class InventoryController {
   async reserveUnit(req, res, next) {
     try {
       const { requestItemId, bloodUnitId } = reservationSchema.parse(req.body);
-      const data = await inventoryService.reserveBloodUnit(requestItemId, bloodUnitId, req.user.id);
+      const data = await inventoryService.reserveBloodUnit(requestItemId, bloodUnitId, req.user);
       res.status(201).json({ message: 'Blood unit reserved', data });
     } catch (err) {
       next(err);

@@ -4,11 +4,7 @@ import { analyticsFilterSchema, etlTriggerSchema, benchmarkRunSchema } from './a
 export class AnalyticsController {
   async getSummary(req, res, next) {
     try {
-      const scoping = {
-        bloodBankId: req.user?.bloodBankId,
-        hospitalId: req.user?.hospitalId,
-      };
-      const data = await analyticsService.getSummary(scoping);
+      const data = await analyticsService.getSummary(req.user, req.query);
       res.json({ data });
     } catch (err) {
       next(err);

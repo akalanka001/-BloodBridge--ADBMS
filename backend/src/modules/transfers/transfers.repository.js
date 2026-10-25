@@ -1,6 +1,16 @@
 import { pool, inTransaction } from '../../db.js';
 
 export class TransfersRepository {
+  async verifyUnitsBelongToBank(unitIds, bankId) {
+    if (!unitIds || !unitIds.length) return true;
+    const { rows } = await pool.query(
+      `SELECT count(*)::int AS cnt FROM blood_units
+       WHERE id = ANY($1::uuid[]) AND blood_bank_id = $2`,
+      [unitIds, bankId],
+    );
+    return rows[0].cnt === unitIds.length;
+  }
+
   async createTransfer({ transferCode, sourceBankId, targetBankId, requestedBy, unitIds, notes }) {
     return inTransaction(async (client) => {
       const { rows } = await client.query(

@@ -103,6 +103,32 @@ export async function processNotificationDeliveries(batchSize = 20) {
           }
         }
 
+        // Suppress delivery if related event (camp or request) was cancelled
+        const { rows: evtRows } = await pool.query(
+          `SELECT n.camp_id, n.request_id,
+                  c.status AS camp_status,
+                  br.status AS request_status
+           FROM notifications n
+           LEFT JOIN donation_camps c ON c.id = n.camp_id
+           LEFT JOIN blood_requests br ON br.id = n.request_id
+           WHERE n.id = $1`,
+          [item.notification_id],
+        );
+        if (evtRows.length > 0) {
+          const evt = evtRows[0];
+          if (evt.camp_status === 'CANCELLED' || evt.request_status === 'CANCELLED') {
+            await pool.query(
+              `UPDATE notification_deliveries
+               SET status = 'FAILED', attempts = max_attempts,
+                   error_message = 'Cancelled event - delivery suppressed', updated_at = now()
+               WHERE id = $1`,
+              [item.id],
+            );
+            processed.push({ id: item.id, status: 'SKIPPED_CANCELLED_EVENT' });
+            continue;
+          }
+        }
+
         let dispatchResult;
         if (item.channel === 'EMAIL') {
           dispatchResult = await sendEmail({

@@ -25,6 +25,7 @@ export const processDonationSchema = z.object({
 
 export const inventoryQuerySchema = z.object({
   bloodBankId: z.coerce.number().int().optional(),
+  bankId: z.coerce.number().int().optional(),
   bloodTypeCode: z.string().optional(),
   componentCode: z.string().optional(),
   releaseStatus: z.enum(['QUARANTINED', 'RELEASED', 'REJECTED']).optional(),

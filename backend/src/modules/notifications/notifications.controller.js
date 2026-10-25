@@ -32,7 +32,7 @@ export class NotificationsController {
   async sendNotification(req, res, next) {
     try {
       const parsed = sendNotificationSchema.parse(req.body);
-      const data = await notificationsService.sendNotification(parsed);
+      const data = await notificationsService.sendNotification(parsed, req.user);
       res.status(201).json({ data });
     } catch (err) {
       next(err);
@@ -41,7 +41,7 @@ export class NotificationsController {
 
   async getDeliveryStatus(req, res, next) {
     try {
-      const data = await notificationsService.getDeliveryStatusLog(100);
+      const data = await notificationsService.getDeliveryStatusLog(100, req.user);
       res.json({ data });
     } catch (err) {
       next(err);

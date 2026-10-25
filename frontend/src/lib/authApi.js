@@ -1,31 +1,7 @@
 import { api } from './api.js';
+import { authStorage } from './authStorage.js';
 
-const STORAGE_KEY = 'bb_session';
-
-export const authStorage = {
-  get() {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  },
-  set(session) {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    } catch (err) {
-      console.error('Failed to save session:', err);
-    }
-  },
-  clear() {
-    try {
-      sessionStorage.removeItem(STORAGE_KEY);
-    } catch (err) {
-      console.error('Failed to clear session:', err);
-    }
-  },
-};
+export { authStorage };
 
 export const authApi = {
   async registerDonor(data) {

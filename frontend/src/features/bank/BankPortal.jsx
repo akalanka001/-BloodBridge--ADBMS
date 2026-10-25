@@ -605,6 +605,18 @@ export function BankPortal({
       {activeTab === 'notifications' && (
         <NotificationInbox user={session?.user} />
       )}
+
+      {!['overview', 'intake', 'donations', 'stock', 'expiry', 'requests', 'transfers', 'camps', 'movements', 'notifications'].includes(activeTab) && (
+        <div className="dash-card" style={{ padding: 40, textAlign: 'center' }}>
+          <h2 className="dash-card-title" style={{ fontSize: 18, color: '#1D3043' }}>Section Not Found</h2>
+          <p className="dash-card-subtitle" style={{ fontSize: 13, color: '#7A8B9E', marginTop: 6 }}>
+            The requested blood bank section (<code>{activeTab}</code>) is not recognized.
+          </p>
+          <button type="button" className="dash-btn-primary" style={{ marginTop: 18, padding: '0 20px', minHeight: 40 }} onClick={() => onTabChange('overview')}>
+            Return to Overview
+          </button>
+        </div>
+      )}
     </div>
   );
 }

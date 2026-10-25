@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { analyticsController } from './analytics.controller.js';
-import { authenticate } from '../../middleware/auth.js';
+import { authenticate, requireRole } from '../../middleware/auth.js';
 
 const router = Router();
 
-// Compatibility endpoint
+// Staff & Admin Analytics Summary (restricted by service.assertAuthorized & getScoping)
 router.get('/summary', authenticate, (req, res, next) => analyticsController.getSummary(req, res, next));
 
 // Dashboard overview with 6 genuine PostgreSQL KPIs, demand charts, and pipeline cards
@@ -19,12 +19,12 @@ router.get('/camp-performance', authenticate, (req, res, next) => analyticsContr
 router.get('/transfers', authenticate, (req, res, next) => analyticsController.getTransfers(req, res, next));
 
 // Warehouse ETL Pipeline & Auditing (Admin restricted)
-router.get('/etl-runs', authenticate, (req, res, next) => analyticsController.getEtlRuns(req, res, next));
-router.post('/etl-runs', authenticate, (req, res, next) => analyticsController.triggerEtlRun(req, res, next));
-router.get('/data-quality', authenticate, (req, res, next) => analyticsController.getDataQuality(req, res, next));
+router.get('/etl-runs', authenticate, requireRole('ADMIN'), (req, res, next) => analyticsController.getEtlRuns(req, res, next));
+router.post('/etl-runs', authenticate, requireRole('ADMIN'), (req, res, next) => analyticsController.triggerEtlRun(req, res, next));
+router.get('/data-quality', authenticate, requireRole('ADMIN'), (req, res, next) => analyticsController.getDataQuality(req, res, next));
 
 // Database Performance Lab & Query Benchmarks (Admin restricted)
-router.get('/benchmarks', authenticate, (req, res, next) => analyticsController.getBenchmarks(req, res, next));
-router.post('/benchmarks', authenticate, (req, res, next) => analyticsController.runBenchmark(req, res, next));
+router.get('/benchmarks', authenticate, requireRole('ADMIN'), (req, res, next) => analyticsController.getBenchmarks(req, res, next));
+router.post('/benchmarks', authenticate, requireRole('ADMIN'), (req, res, next) => analyticsController.runBenchmark(req, res, next));
 
 export default router;

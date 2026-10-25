@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { authStorage } from './lib/authStorage.js';
 
 let socket = null;
 
@@ -7,7 +8,7 @@ let socket = null;
  * Automatically transmits the JWT Bearer token if provided in storage or parameters.
  */
 export function getSocket(token) {
-  const authToken = token || localStorage.getItem('token');
+  const authToken = token || authStorage.getToken();
 
   if (!socket) {
     socket = io('/', {

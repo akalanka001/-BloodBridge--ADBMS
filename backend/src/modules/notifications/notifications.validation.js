@@ -10,4 +10,5 @@ export const sendNotificationSchema = z.object({
   priority: z.enum(['ROUTINE', 'URGENT', 'EMERGENCY']).default('ROUTINE'),
   category: z.enum(['CAMP', 'APPOINTMENT', 'EMERGENCY', 'SYSTEM']).default('CAMP'),
   destination: z.string().trim().min(3).optional(),
+  idempotencyKey: z.string().trim().max(100).optional(),
 });

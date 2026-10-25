@@ -9,7 +9,9 @@ export class AnalyticsService {
   /**
    * Compatibility summary endpoint
    */
-  async getSummary(scoping = {}) {
+  async getSummary(user, filters = {}) {
+    this.assertAuthorized(user);
+    const scoping = await this.getScoping(user, filters);
     const metrics = await analyticsRepository.getOperationalMetrics(scoping);
     const distribution = await analyticsRepository.getBloodTypeStockDistribution(scoping.bloodBankId);
     return {
@@ -157,24 +159,35 @@ export class AnalyticsService {
   async getScoping(user, filters = {}) {
     const scoping = { ...filters };
     if (user.role === 'BANK_STAFF') {
-      if (!user.bloodBankId) {
-        const { rows } = await pool.query(
-          'SELECT blood_bank_id FROM staff_memberships WHERE user_id = $1 AND is_active = true',
-          [user.id]
-        );
-        if (rows[0]?.blood_bank_id) user.bloodBankId = rows[0].blood_bank_id;
+      const { rows } = await pool.query(
+        'SELECT blood_bank_id FROM staff_memberships WHERE user_id = $1 AND is_active = true AND blood_bank_id IS NOT NULL',
+        [user.id],
+      );
+      if (!rows.length) {
+        throw new ForbiddenError('No active blood bank membership found');
       }
-      if (user.bloodBankId) scoping.bloodBankId = user.bloodBankId;
-    }
-    if (user.role === 'HOSPITAL_STAFF') {
-      if (!user.hospitalId) {
-        const { rows } = await pool.query(
-          'SELECT hospital_id FROM staff_memberships WHERE user_id = $1 AND is_active = true',
-          [user.id]
-        );
-        if (rows[0]?.hospital_id) user.hospitalId = rows[0].hospital_id;
+      const userBankId = rows[0].blood_bank_id;
+      if (filters.bloodBankId && String(filters.bloodBankId) !== String(userBankId)) {
+        throw new ForbiddenError('Forbidden: unauthorized blood bank scope');
       }
-      if (user.hospitalId) scoping.hospitalId = user.hospitalId;
+      scoping.bloodBankId = userBankId;
+      delete scoping.hospitalId;
+    } else if (user.role === 'HOSPITAL_STAFF') {
+      const { rows } = await pool.query(
+        'SELECT hospital_id FROM staff_memberships WHERE user_id = $1 AND is_active = true AND hospital_id IS NOT NULL',
+        [user.id],
+      );
+      if (!rows.length) {
+        throw new ForbiddenError('No active hospital membership found');
+      }
+      const userHospitalId = rows[0].hospital_id;
+      if (filters.hospitalId && String(filters.hospitalId) !== String(userHospitalId)) {
+        throw new ForbiddenError('Forbidden: unauthorized hospital scope');
+      }
+      scoping.hospitalId = userHospitalId;
+      delete scoping.bloodBankId;
+    } else if (user.role !== 'ADMIN') {
+      throw new ForbiddenError('Access denied. Role not authorized for analytics.');
     }
     return scoping;
   }

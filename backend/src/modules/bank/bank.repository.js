@@ -173,6 +173,28 @@ export class BankRepository {
     );
     return rows;
   }
+
+  async listVerifiedBloodBanks(districtCode = null) {
+    let query = `
+      SELECT bb.id, bb.name, bb.contact_phone, bb.is_verified,
+             loc.district_code, dist.name AS district_name,
+             loc.ds_code, loc.town, loc.address_line,
+             COALESCE(loc.address_line, loc.town, dist.name, 'Sri Lanka') AS address,
+             loc.latitude, loc.longitude
+      FROM blood_banks bb
+      LEFT JOIN locations loc ON loc.id = bb.location_id
+      LEFT JOIN districts dist ON dist.code = loc.district_code
+      WHERE bb.is_verified = TRUE
+    `;
+    const params = [];
+    if (districtCode && districtCode !== 'ALL') {
+      query += ` AND loc.district_code = $1`;
+      params.push(districtCode);
+    }
+    query += ` ORDER BY bb.name ASC`;
+    const { rows } = await pool.query(query, params);
+    return rows;
+  }
 }
 
 export const bankRepository = new BankRepository();

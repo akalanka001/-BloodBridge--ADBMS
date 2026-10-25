@@ -5,7 +5,7 @@ export class TransfersController {
   async createTransfer(req, res, next) {
     try {
       const data = createTransferSchema.parse(req.body);
-      const transfer = await transfersService.createTransfer(data, req.user.id);
+      const transfer = await transfersService.createTransfer(data, req.user);
       res.status(201).json({ message: 'Transfer request created', data: transfer });
     } catch (err) {
       next(err);
@@ -15,7 +15,7 @@ export class TransfersController {
   async getTransfers(req, res, next) {
     try {
       const bankId = req.query.bankId ? Number(req.query.bankId) : null;
-      const data = await transfersService.getTransfers(bankId);
+      const data = await transfersService.getTransfers(bankId, req.user);
       res.json({ data, count: data.length });
     } catch (err) {
       next(err);
@@ -24,7 +24,7 @@ export class TransfersController {
 
   async getTransferById(req, res, next) {
     try {
-      const data = await transfersService.getTransferById(req.params.id);
+      const data = await transfersService.getTransferById(req.params.id, req.user);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -33,7 +33,7 @@ export class TransfersController {
 
   async dispatchTransfer(req, res, next) {
     try {
-      const transfer = await transfersService.dispatchTransfer(req.params.id, req.user.id);
+      const transfer = await transfersService.dispatchTransfer(req.params.id, req.user);
       res.json({ message: 'Transfer successfully dispatched', data: transfer });
     } catch (err) {
       next(err);
@@ -43,7 +43,7 @@ export class TransfersController {
   async receiveTransfer(req, res, next) {
     try {
       const { notes } = receiveTransferSchema.parse(req.body || {});
-      const transfer = await transfersService.receiveTransfer(req.params.id, req.user.id, notes);
+      const transfer = await transfersService.receiveTransfer(req.params.id, req.user, notes);
       res.json({ message: 'Transfer successfully received into inventory', data: transfer });
     } catch (err) {
       next(err);

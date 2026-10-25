@@ -44,10 +44,21 @@ export default function App() {
       setPage(target);
     };
 
+    const handleAuthExpired = () => {
+      setSession(null);
+      setAuthNotice('Your session has expired. Please log in again.');
+      navigate('home');
+      setPage('home');
+    };
+
     window.addEventListener('hashchange', handleRoute);
+    window.addEventListener('auth:expired', handleAuthExpired);
     handleRoute();
 
-    return () => window.removeEventListener('hashchange', handleRoute);
+    return () => {
+      window.removeEventListener('hashchange', handleRoute);
+      window.removeEventListener('auth:expired', handleAuthExpired);
+    };
   }, []);
 
   // Fetch districts for camp search filter

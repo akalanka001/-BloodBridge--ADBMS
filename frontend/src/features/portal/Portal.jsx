@@ -35,6 +35,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
 
   const userRole = session?.user?.role;
   const authorized = userRole === roleMapping[type];
+  const [systemHealth, setSystemHealth] = useState('healthy');
 
   useEffect(() => {
     if (!token || !authorized) return;
@@ -43,19 +44,23 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       api('/donors/me', {}, token)
         .then((r) => setProfile(r.data))
         .catch((e) => setError(e.message));
+    } else if (type === 'admin') {
+      api('/health')
+        .then((res) => setSystemHealth(res.status === 'ok' ? 'healthy' : 'degraded'))
+        .catch(() => setSystemHealth('offline'));
     }
   }, [type, token, authorized]);
 
-  // Headers per role matching the SVGs
+  // Headers per role matching the design system
   const headers = {
     donor: {
-      title: `Good morning, ${profile?.fullName || profile?.full_name || session?.user?.fullName || 'Amara'}`,
+      title: `Good morning, ${profile?.fullName || profile?.full_name || session?.user?.fullName || 'Donor'}`,
       subtitle: 'Every donation starts with someone willing to help.',
       action: (
         <button
           type="button"
           className="dash-btn-primary"
-          onClick={() => navigate('camps')}
+          onClick={() => setActiveNavTab('banks')}
         >
           <span>Find a blood bank</span>
           <ArrowRight size={16} />
@@ -87,8 +92,8 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       action: (
         <div
           style={{
-            background: '#E8F7F1',
-            color: '#16A085',
+            background: systemHealth === 'healthy' ? '#E8F7F1' : systemHealth === 'degraded' ? '#FFFBEB' : '#FEF2F2',
+            color: systemHealth === 'healthy' ? '#16A085' : systemHealth === 'degraded' ? '#D97706' : '#DC2626',
             fontSize: 11,
             fontWeight: 750,
             padding: '7px 16px',
@@ -98,14 +103,42 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
             gap: 6,
           }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A085' }} />
-          SYSTEM HEALTHY
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: systemHealth === 'healthy' ? '#16A085' : systemHealth === 'degraded' ? '#D97706' : '#DC2626' }} />
+          {systemHealth === 'healthy' ? 'POSTGRES CONNECTED' : systemHealth === 'degraded' ? 'SYSTEM DEGRADED' : 'SYSTEM OFFLINE'}
         </div>
       ),
     },
   };
 
   const currentHeader = headers[type] || headers.donor;
+
+  // Strict role isolation: never render another role's portal in the DOM
+  if (!authorized) {
+    return (
+      <DashboardLayout
+        role={userRole || 'DONOR'}
+        user={session?.user}
+        activeTab="unauthorized"
+        onLogout={onLogout}
+        headerTitle="Access Restricted"
+        headerSubtitle="Role authorization required."
+      >
+        <div className="dash-priority-banner" style={{ background: '#FFF7ED', marginBottom: 24, padding: 24, borderRadius: 12 }}>
+          <div className="dash-priority-icon" style={{ background: '#FFEDD5', color: '#D97706', padding: 8, borderRadius: 8 }}>
+            <AlertTriangle size={28} />
+          </div>
+          <div className="dash-priority-content" style={{ marginLeft: 16 }}>
+            <h3 className="dash-priority-title" style={{ fontSize: 18, fontWeight: 700, color: '#9A3412', margin: 0 }}>
+              Role Authorization Required
+            </h3>
+            <p className="dash-priority-desc" style={{ fontSize: 14, color: '#C2410C', marginTop: 6 }}>
+              Your account role is <strong>{userRole || 'Guest'}</strong>. You do not have permission to access the <strong>{roleMapping[type]}</strong> portal.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -120,22 +153,6 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       headerSubtitle={currentHeader.subtitle}
       headerAction={currentHeader.action}
     >
-      {/* Fallback unauthorized notice if logged into wrong role */}
-      {!authorized && (
-        <div className="dash-priority-banner" style={{ background: '#FFF7ED', marginBottom: 24 }}>
-          <div className="dash-priority-icon" style={{ background: '#FFEDD5', color: '#D97706' }}>
-            <AlertTriangle size={24} />
-          </div>
-          <div className="dash-priority-content">
-            <h3 className="dash-priority-title">Role Permission Notice</h3>
-            <p className="dash-priority-desc">
-              Your logged-in role is <strong>{session?.user?.role || 'Guest'}</strong>. This section is
-              configured for <strong>{roleMapping[type]}</strong> accounts.
-            </p>
-          </div>
-        </div>
-      )}
-
       {error && <div className="notice error" style={{ marginBottom: 20 }}>{error}</div>}
 
       {/* 1. DONOR PORTAL */}
@@ -144,6 +161,7 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
           profile={profile}
           token={token}
           activeTab={activeNavTab}
+          onTabChange={setActiveNavTab}
           onProfileUpdate={(updated) => setProfile(updated)}
         />
       )}
@@ -178,3 +196,4 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
     </DashboardLayout>
   );
 }
+

@@ -50,26 +50,36 @@ export function requireInstitution(expectedType = 'ANY') {
         if (req.user.role !== 'HOSPITAL_STAFF') {
           return res.status(403).json({ error: 'Hospital staff access required' });
         }
+        const activeHospitalMemberships = userMemberships.filter((m) => m.hospital_id != null);
+        if (!activeHospitalMemberships.length) {
+          return res.status(403).json({ error: 'No active hospital membership found' });
+        }
         if (targetHospitalId) {
-          const match = userMemberships.some(
+          const match = activeHospitalMemberships.some(
             (m) => String(m.hospital_id) === String(targetHospitalId),
           );
           if (!match) {
             return res.status(403).json({ error: 'Forbidden: unauthorized hospital scope' });
           }
         }
+        req.userHospitalId = targetHospitalId || activeHospitalMemberships[0].hospital_id;
       } else if (expectedType === 'BLOOD_BANK') {
         if (req.user.role !== 'BANK_STAFF') {
           return res.status(403).json({ error: 'Blood bank staff access required' });
         }
+        const activeBankMemberships = userMemberships.filter((m) => m.blood_bank_id != null);
+        if (!activeBankMemberships.length) {
+          return res.status(403).json({ error: 'No active blood bank membership found' });
+        }
         if (targetBankId) {
-          const match = userMemberships.some(
+          const match = activeBankMemberships.some(
             (m) => String(m.blood_bank_id) === String(targetBankId),
           );
           if (!match) {
             return res.status(403).json({ error: 'Forbidden: unauthorized blood bank scope' });
           }
         }
+        req.userBankId = targetBankId || activeBankMemberships[0].blood_bank_id;
       } else {
         // ANY institution: must match target if specified
         if (targetHospitalId) {

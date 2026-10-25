@@ -35,7 +35,7 @@ export function DonorOverview({
   const totalDonations = Number(dashboardData?.total_donations) || 0;
   const isAvailable = Boolean(dashboardData?.available_for_contact ?? profile?.available_for_contact);
   const invitationsCount = Number(dashboardData?.unread_invitations_count) || 0;
-  const bloodType = dashboardData?.blood_type_code || profile?.blood_type_code || 'O+';
+  const bloodType = dashboardData?.blood_type_code || profile?.blood_type_code || 'Unknown / Not verified';
   const isMedicallyVerified = Boolean(dashboardData?.is_medically_verified ?? profile?.is_medically_verified);
   const districtName = dashboardData?.district_name || profile?.district_name || 'Sri Lanka';
   const reviewInfo = dashboardData?.next_review_info;
@@ -51,7 +51,7 @@ export function DonorOverview({
   };
 
   const getInitials = (name) => {
-    if (!name) return 'AM';
+    if (!name || name === 'Donor') return 'DN';
     const p = name.trim().split(/\s+/);
     if (p.length >= 2) return `${p[0][0]}${p[1][0]}`.toUpperCase();
     return name.slice(0, 2).toUpperCase();

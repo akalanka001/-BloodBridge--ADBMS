@@ -31,6 +31,16 @@ export class BankController {
       next(err);
     }
   }
+
+  async getVerifiedBloodBanks(req, res, next) {
+    try {
+      const { district } = req.query;
+      const data = await bankService.getVerifiedBloodBanks(district);
+      res.json({ data });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const bankController = new BankController();

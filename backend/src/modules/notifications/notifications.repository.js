@@ -1,5 +1,17 @@
 import { pool, inTransaction } from '../../db.js';
 
+function maskDestination(dest) {
+  if (!dest) return null;
+  if (dest.includes('@')) {
+    const [user, domain] = dest.split('@');
+    return `${user.slice(0, 1)}***@${domain}`;
+  }
+  if (dest.length >= 7) {
+    return `${dest.slice(0, 3)}****${dest.slice(-3)}`;
+  }
+  return '***';
+}
+
 export class NotificationsRepository {
   async getUserNotifications(userId, limit = 50) {
     const { rows } = await pool.query(
@@ -48,7 +60,7 @@ export class NotificationsRepository {
     return rowCount;
   }
 
-  async createNotification(data) {
+  async createNotification(data, senderUserId = null) {
     return inTransaction(async (client) => {
       // 1. Insert in-app notification
       const { rows } = await client.query(
@@ -72,7 +84,6 @@ export class NotificationsRepository {
 
       // 2. If channel is SMS or EMAIL, enqueue in notification_deliveries
       if (['SMS', 'EMAIL'].includes(data.channel)) {
-        // Resolve destination if not explicitly provided
         let destination = data.destination;
         if (!destination) {
           const { rows: uRows } = await client.query(
@@ -85,7 +96,10 @@ export class NotificationsRepository {
         }
 
         if (destination) {
-          const idempotencyKey = `${notification.id}:${data.channel}`;
+          const idempotencyKey =
+            data.idempotencyKey ||
+            `${data.recipientUserId}:${data.category}:${data.channel}:${data.campId || data.requestId || notification.id}`;
+
           await client.query(
             `INSERT INTO notification_deliveries (
                notification_id, recipient_user_id, channel, destination,
@@ -110,19 +124,41 @@ export class NotificationsRepository {
     });
   }
 
-  async getDeliveryStatusLog(limit = 100) {
+  async getDeliveryStatusLog(limit = 100, institutionScope = null) {
+    const params = [];
+    let idx = 1;
+    let whereClause = '';
+
+    if (institutionScope?.bloodBankId) {
+      whereClause = `WHERE (c.blood_bank_id = $${idx++} OR nd.channel = 'IN_APP')`;
+      params.push(institutionScope.bloodBankId);
+    } else if (institutionScope?.hospitalId) {
+      whereClause = `WHERE (br.hospital_id = $${idx++} OR nd.channel = 'IN_APP')`;
+      params.push(institutionScope.hospitalId);
+    }
+
+    params.push(limit);
+
     const { rows } = await pool.query(
       `SELECT nd.id, nd.notification_id, nd.recipient_user_id, u.full_name AS recipient_name,
               nd.channel, nd.destination, nd.subject, nd.status, nd.attempts,
               nd.max_attempts, nd.last_attempt_at, nd.error_message, nd.provider_message_id,
               nd.created_at, nd.updated_at
        FROM notification_deliveries nd
+       LEFT JOIN notifications n ON n.id = nd.notification_id
+       LEFT JOIN donation_camps c ON c.id = n.camp_id
+       LEFT JOIN blood_requests br ON br.id = n.request_id
        LEFT JOIN users u ON u.id = nd.recipient_user_id
+       ${whereClause}
        ORDER BY nd.created_at DESC
-       LIMIT $1`,
-      [limit],
+       LIMIT $${idx}`,
+      params,
     );
-    return rows;
+
+    return rows.map((r) => ({
+      ...r,
+      destination: maskDestination(r.destination),
+    }));
   }
 }
 

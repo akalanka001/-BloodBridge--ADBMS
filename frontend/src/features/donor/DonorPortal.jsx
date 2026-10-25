@@ -228,6 +228,20 @@ export function DonorPortal({
           {activeTab === 'settings' && (
             <AccountSettingsPage token={token} user={profile} />
           )}
+
+          {!['overview', 'donations', 'appointments', 'banks', 'camps', 'registrations', 'notifications', 'profile', 'preferences', 'settings'].includes(activeTab) && (
+            <div className="py-16 text-center">
+              <h3 className="text-lg font-bold text-navy">Section Not Found</h3>
+              <p className="text-sm text-slate-500 mt-1">The requested donor section does not exist.</p>
+              <button
+                type="button"
+                onClick={() => onTabChange('overview')}
+                className="btn-primary mt-4 text-xs inline-flex items-center gap-1.5 px-3 py-1.5"
+              >
+                Return to Overview
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { pool, inTransaction } from '../../db.js';
+import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from '../../infrastructure/errors.js';
 
 export class DonorsRepository {
   async findDonorByUserId(userId, client = pool) {
@@ -238,14 +239,75 @@ export class DonorsRepository {
   }
 
   async respondToInvitation(donorId, invitationId, response) {
-    const { rows } = await pool.query(
-      `UPDATE donor_invitations
-       SET status = $1, responded_at = now()
-       WHERE id = $2 AND donor_id = $3
-       RETURNING id, status, responded_at`,
-      [response, invitationId, donorId],
-    );
-    return rows[0] || null;
+    const validResponses = ['INTERESTED', 'UNAVAILABLE', 'DISMISSED'];
+    if (!validResponses.includes(response)) {
+      throw new BadRequestError(`Invalid response: ${response}. Must be one of ${validResponses.join(', ')}`);
+    }
+
+    return inTransaction(async (client) => {
+      // 1. Fetch invitation with row lock to serialize concurrent responses
+      const { rows } = await client.query(
+        `SELECT di.*, ea.status AS appeal_status, ea.expires_at AS appeal_expires_at
+         FROM donor_invitations di
+         LEFT JOIN emergency_appeals ea ON ea.id = di.request_id
+         WHERE di.id = $1 AND di.donor_id = $2
+         FOR UPDATE OF di`,
+        [invitationId, donorId],
+      );
+
+      if (!rows.length) {
+        throw new NotFoundError('Invitation not found for this donor');
+      }
+
+      const inv = rows[0];
+
+      // 2. Reject if already answered (not PENDING)
+      if (inv.status !== 'PENDING') {
+        throw new ConflictError(`Invitation has already been answered with status: ${inv.status}`);
+      }
+
+      // 3. Reject if expired
+      if (inv.expires_at && new Date(inv.expires_at) <= new Date()) {
+        throw new BadRequestError('Invitation has expired and can no longer be accepted');
+      }
+
+      // 4. If linked to an appeal, check appeal state
+      if (inv.appeal_status && (inv.appeal_status === 'CANCELLED' || inv.appeal_status === 'EXPIRED')) {
+        throw new BadRequestError(`Associated emergency appeal is ${inv.appeal_status}`);
+      }
+
+      // 5. Atomic conditional update with server-generated timestamp
+      const updateRes = await client.query(
+        `UPDATE donor_invitations
+         SET status = $1, responded_at = now()
+         WHERE id = $2 AND donor_id = $3 AND status = 'PENDING'
+         RETURNING id, status, responded_at, donor_id, title`,
+        [response, invitationId, donorId],
+      );
+
+      if (!updateRes.rows.length) {
+        throw new ConflictError('Concurrent modification detected on invitation response');
+      }
+
+      // Audit outbox event
+      await client.query(
+        `INSERT INTO event_outbox (event_type, aggregate_type, aggregate_id, payload)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [
+          'donor_invitation:responded',
+          'donor_invitations',
+          invitationId.toString(),
+          JSON.stringify({
+            invitationId,
+            donorId,
+            response,
+            timestamp: new Date().toISOString(),
+          }),
+        ],
+      );
+
+      return updateRes.rows[0];
+    });
   }
 
   async listAppointments(donorId) {
@@ -267,33 +329,144 @@ export class DonorsRepository {
   }
 
   async createAppointment(donorId, data) {
-    const { rows } = await pool.query(
-      `INSERT INTO donor_appointments (
-         donor_id, blood_bank_id, camp_id, appointment_date, time_slot, donation_type, notes
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, donor_id, blood_bank_id, camp_id, appointment_date, time_slot, donation_type, status, notes, created_at`,
-      [
-        donorId,
-        data.bloodBankId || null,
-        data.campId || null,
-        data.appointmentDate,
-        data.timeSlot,
-        data.donationType || 'WHOLE_BLOOD',
-        data.notes || null,
-      ],
-    );
-    return rows[0];
+    return inTransaction(async (client) => {
+      // 1. Validate appointment date is in future / today
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (data.appointmentDate < todayStr) {
+        throw new BadRequestError('Appointment date cannot be in the past');
+      }
+
+      // 2. Validate facility/session exists and is verified/approved
+      let facilityName = 'Blood Bank';
+      let maxSlotCapacity = 5;
+
+      if (data.bloodBankId) {
+        const bankRes = await client.query(
+          `SELECT id, name, is_verified FROM blood_banks WHERE id = $1`,
+          [data.bloodBankId],
+        );
+        if (!bankRes.rows.length) {
+          throw new NotFoundError('Selected blood bank not found');
+        }
+        if (!bankRes.rows[0].is_verified) {
+          throw new BadRequestError('Selected blood bank is not verified for appointment bookings');
+        }
+        facilityName = bankRes.rows[0].name;
+      } else if (data.campId) {
+        const campRes = await client.query(
+          `SELECT id, title, status, starts_at, ends_at, capacity FROM donation_camps WHERE id = $1`,
+          [data.campId],
+        );
+        if (!campRes.rows.length) {
+          throw new NotFoundError('Selected donation camp not found');
+        }
+        const camp = campRes.rows[0];
+        if (camp.status !== 'APPROVED') {
+          throw new BadRequestError(`Cannot book appointment for a camp with status ${camp.status}`);
+        }
+        const appDate = new Date(data.appointmentDate);
+        const campStart = new Date(camp.starts_at);
+        const campEnd = new Date(camp.ends_at);
+        campStart.setHours(0, 0, 0, 0);
+        campEnd.setHours(23, 59, 59, 999);
+        if (appDate < campStart || appDate > campEnd) {
+          throw new BadRequestError('Appointment date is outside the approved camp dates');
+        }
+        facilityName = camp.title;
+        if (camp.capacity) {
+          maxSlotCapacity = Math.max(1, Math.min(maxSlotCapacity, Math.ceil(camp.capacity / 8)));
+        }
+      } else {
+        throw new BadRequestError('Either bloodBankId or campId must be specified');
+      }
+
+      // 3. Prevent duplicate active booking by the same donor on the same date
+      const dupRes = await client.query(
+        `SELECT id FROM donor_appointments
+         WHERE donor_id = $1
+           AND appointment_date = $2
+           AND status IN ('BOOKED', 'CONFIRMED')`,
+        [donorId, data.appointmentDate],
+      );
+      if (dupRes.rows.length > 0) {
+        throw new ConflictError('You already have an active appointment scheduled on this date');
+      }
+
+      // 4. Enforce capacity transactionally
+      const countRes = await client.query(
+        `SELECT count(*)::int AS booked_count
+         FROM donor_appointments
+         WHERE (($1::bigint IS NOT NULL AND blood_bank_id = $1) OR ($2::uuid IS NOT NULL AND camp_id = $2))
+           AND appointment_date = $3
+           AND time_slot = $4
+           AND status IN ('BOOKED', 'CONFIRMED')`,
+        [data.bloodBankId || null, data.campId || null, data.appointmentDate, data.timeSlot],
+      );
+      const bookedCount = countRes.rows[0]?.booked_count || 0;
+      if (bookedCount >= maxSlotCapacity) {
+        throw new ConflictError(
+          `The selected time slot '${data.timeSlot}' has reached full capacity (${maxSlotCapacity} bookings). Please select a different time slot.`,
+        );
+      }
+
+      // 5. Insert appointment
+      const { rows } = await client.query(
+        `INSERT INTO donor_appointments (
+           donor_id, blood_bank_id, camp_id, appointment_date, time_slot, donation_type, notes, status
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'BOOKED')
+         RETURNING id, donor_id, blood_bank_id, camp_id, appointment_date, time_slot, donation_type, status, notes, created_at`,
+        [
+          donorId,
+          data.bloodBankId || null,
+          data.campId || null,
+          data.appointmentDate,
+          data.timeSlot,
+          data.donationType || 'WHOLE_BLOOD',
+          data.notes || null,
+        ],
+      );
+
+      const appt = rows[0];
+      appt.facility_name = facilityName;
+      appt.medical_clearance_notice =
+        'Appointment booking does not constitute medical eligibility or clinical clearance. In-person medical screening will be conducted by healthcare staff.';
+      return appt;
+    });
   }
 
   async cancelAppointment(donorId, appointmentId) {
-    const { rows } = await pool.query(
-      `UPDATE donor_appointments
-       SET status = 'CANCELLED', updated_at = now()
-       WHERE id = $1 AND donor_id = $2 AND status = 'BOOKED'
-       RETURNING id, status, updated_at`,
-      [appointmentId, donorId],
-    );
-    return rows[0] || null;
+    return inTransaction(async (client) => {
+      const { rows: existing } = await client.query(
+        `SELECT id, donor_id, status FROM donor_appointments WHERE id = $1 FOR UPDATE`,
+        [appointmentId],
+      );
+
+      if (!existing.length) {
+        throw new NotFoundError('Appointment not found');
+      }
+
+      if (existing[0].donor_id !== donorId) {
+        throw new ForbiddenError('Unauthorized: You cannot cancel an appointment belonging to another donor');
+      }
+
+      if (existing[0].status === 'CANCELLED') {
+        throw new BadRequestError('Appointment is already cancelled');
+      }
+
+      if (existing[0].status !== 'BOOKED' && existing[0].status !== 'CONFIRMED') {
+        throw new BadRequestError(`Cannot cancel appointment with status ${existing[0].status}`);
+      }
+
+      const { rows } = await client.query(
+        `UPDATE donor_appointments
+         SET status = 'CANCELLED', updated_at = now()
+         WHERE id = $1 AND donor_id = $2
+         RETURNING id, status, updated_at`,
+        [appointmentId, donorId],
+      );
+
+      return rows[0] || null;
+    });
   }
 
   async createLinkClaim(userId, donorId, verificationNotes) {
