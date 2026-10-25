@@ -72,6 +72,9 @@ app.use((err, _req, res, _next) => {
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json({ error: err.message, details: err.details });
   }
+  if (err.statusCode || err.status) {
+    return res.status(err.statusCode || err.status).json({ error: err.message });
+  }
   if (err instanceof ZodError) {
     return res.status(400).json({
       error: 'Validation failed',
