@@ -168,7 +168,13 @@ export function Portal({ type, session, token, onLogout = () => {} }) {
       )}
 
       {/* 4. ADMIN PORTAL */}
-      {type === 'admin' && <AdminPortal token={token} activeTab={activeNavTab} />}
+      {type === 'admin' && (
+        <AdminPortal
+          token={token}
+          activeTab={activeNavTab}
+          onTabChange={setActiveNavTab}
+        />
+      )}
     </DashboardLayout>
   );
 }
