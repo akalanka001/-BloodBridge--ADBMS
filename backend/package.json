@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test --test-force-exit test/*.test.js",
+    "test": "node --test --test-concurrency=1 --test-force-exit test/*.test.js",
     "test:unit": "node --test --test-force-exit test/auth.test.js test/validation.test.js",
     "test:db": "node --test --test-force-exit test/database-integration.test.js"
   },

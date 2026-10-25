@@ -120,6 +120,12 @@ export class EtlService {
     let count = 0;
 
     // 1. dim_district
+    await queryWarehouse(`
+      INSERT INTO dim_district (district_code, district_name, province_name)
+      VALUES ('UNKNOWN', 'Unknown District', 'Unknown Province')
+      ON CONFLICT (district_code) DO NOTHING
+    `);
+
     const { rows: operationalDistricts } = await pool.query(`
       SELECT d.code, d.name, p.name AS province_name
       FROM districts d
@@ -216,13 +222,18 @@ export class EtlService {
     const query = `
       SELECT d.id AS donation_id,
              d.collected_at,
-             l.district_code,
+             COALESCE(camp_loc.district_code, bb_loc.district_code, dn.district_code, 'UNKNOWN') AS district_code,
              d.blood_bank_id,
-             dn.blood_type_code
+             COALESCE(bu.blood_type_code, dn.blood_type_code) AS blood_type_code
       FROM donations d
-      JOIN blood_banks bb ON bb.id = d.blood_bank_id
-      JOIN locations l ON l.id = bb.location_id
+      LEFT JOIN blood_banks bb ON bb.id = d.blood_bank_id
+      LEFT JOIN locations bb_loc ON bb_loc.id = bb.location_id
+      LEFT JOIN donation_camps c ON c.id = d.camp_id
+      LEFT JOIN locations camp_loc ON camp_loc.id = c.location_id
       LEFT JOIN donors dn ON dn.id = d.donor_id
+      LEFT JOIN LATERAL (
+        SELECT blood_type_code FROM blood_units WHERE donation_id = d.id LIMIT 1
+      ) bu ON true
       ${watermark ? 'WHERE d.created_at >= $1 OR d.collected_at >= $1' : ''}
     `;
     const params = watermark ? [watermark] : [];
@@ -244,10 +255,30 @@ export class EtlService {
     for (const row of rows) {
       try {
         const dateKey = parseInt(row.collected_at.toISOString().slice(0, 10).replace(/-/g, ''), 10);
-        const { rows: distRow } = await queryWarehouse(
+        await queryWarehouse(`
+          INSERT INTO dim_date (date_key, full_date, year, month, quarter)
+          VALUES (
+            $1,
+            $2::date,
+            extract(year FROM $2::date)::smallint,
+            extract(month FROM $2::date)::smallint,
+            extract(quarter FROM $2::date)::smallint
+          )
+          ON CONFLICT (date_key) DO NOTHING
+        `, [dateKey, row.collected_at]);
+
+        let { rows: distRow } = await queryWarehouse(
           'SELECT district_key FROM dim_district WHERE district_code = $1',
           [row.district_code]
         );
+        if (!distRow[0]?.district_key) {
+          const { rows: unkDist } = await queryWarehouse(
+            'SELECT district_key FROM dim_district WHERE district_code = $1',
+            ['UNKNOWN']
+          );
+          distRow = unkDist;
+        }
+
         const { rows: instRow } = await queryWarehouse(
           'SELECT institution_key FROM dim_institution WHERE source_institution_id = $1 AND institution_type = \'BLOOD_BANK\'',
           [row.blood_bank_id]
@@ -295,7 +326,7 @@ export class EtlService {
              br.created_at,
              br.urgency,
              br.hospital_id,
-             l.district_code,
+             COALESCE(l.district_code, 'UNKNOWN') AS district_code,
              coalesce((
                SELECT count(*)::int
                FROM inventory_reservations ir
@@ -303,8 +334,8 @@ export class EtlService {
              ), 0) AS units_fulfilled
       FROM request_items ri
       JOIN blood_requests br ON br.id = ri.request_id
-      JOIN hospitals h ON h.id = br.hospital_id
-      JOIN locations l ON l.id = h.location_id
+      LEFT JOIN hospitals h ON h.id = br.hospital_id
+      LEFT JOIN locations l ON l.id = h.location_id
       ${watermark ? 'WHERE br.created_at >= $1' : ''}
     `;
     const params = watermark ? [watermark] : [];
@@ -326,10 +357,30 @@ export class EtlService {
     for (const row of rows) {
       try {
         const dateKey = parseInt(row.created_at.toISOString().slice(0, 10).replace(/-/g, ''), 10);
-        const { rows: distRow } = await queryWarehouse(
+        await queryWarehouse(`
+          INSERT INTO dim_date (date_key, full_date, year, month, quarter)
+          VALUES (
+            $1,
+            $2::date,
+            extract(year FROM $2::date)::smallint,
+            extract(month FROM $2::date)::smallint,
+            extract(quarter FROM $2::date)::smallint
+          )
+          ON CONFLICT (date_key) DO NOTHING
+        `, [dateKey, row.created_at]);
+
+        let { rows: distRow } = await queryWarehouse(
           'SELECT district_key FROM dim_district WHERE district_code = $1',
           [row.district_code]
         );
+        if (!distRow[0]?.district_key) {
+          const { rows: unkDist } = await queryWarehouse(
+            'SELECT district_key FROM dim_district WHERE district_code = $1',
+            ['UNKNOWN']
+          );
+          distRow = unkDist;
+        }
+
         const { rows: instRow } = await queryWarehouse(
           'SELECT institution_key FROM dim_institution WHERE source_institution_id = $1 AND institution_type = \'HOSPITAL\'',
           [row.hospital_id]
@@ -389,10 +440,10 @@ export class EtlService {
       SELECT cr.id AS registration_id,
              cr.registered_at,
              cr.status,
-             l.district_code
+             COALESCE(l.district_code, 'UNKNOWN') AS district_code
       FROM camp_registrations cr
       JOIN donation_camps c ON c.id = cr.camp_id
-      JOIN locations l ON l.id = c.location_id
+      LEFT JOIN locations l ON l.id = c.location_id
       ${watermark ? 'WHERE cr.registered_at >= $1' : ''}
     `;
     const params = watermark ? [watermark] : [];
@@ -414,10 +465,30 @@ export class EtlService {
     for (const row of rows) {
       try {
         const dateKey = parseInt(row.registered_at.toISOString().slice(0, 10).replace(/-/g, ''), 10);
-        const { rows: distRow } = await queryWarehouse(
+        await queryWarehouse(`
+          INSERT INTO dim_date (date_key, full_date, year, month, quarter)
+          VALUES (
+            $1,
+            $2::date,
+            extract(year FROM $2::date)::smallint,
+            extract(month FROM $2::date)::smallint,
+            extract(quarter FROM $2::date)::smallint
+          )
+          ON CONFLICT (date_key) DO NOTHING
+        `, [dateKey, row.registered_at]);
+
+        let { rows: distRow } = await queryWarehouse(
           'SELECT district_key FROM dim_district WHERE district_code = $1',
           [row.district_code]
         );
+        if (!distRow[0]?.district_key) {
+          const { rows: unkDist } = await queryWarehouse(
+            'SELECT district_key FROM dim_district WHERE district_code = $1',
+            ['UNKNOWN']
+          );
+          distRow = unkDist;
+        }
+
         if (!distRow[0]?.district_key) continue;
 
         const attendedCount = row.status === 'ATTENDED' ? 1 : 0;
