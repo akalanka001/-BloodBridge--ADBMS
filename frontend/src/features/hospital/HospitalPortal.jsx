@@ -1,171 +1,354 @@
-import React, { useState, useEffect } from 'react';
-import { Hospital, AlertTriangle, Send, CheckCircle2 } from 'lucide-react';
-import { Badge } from '../../components/ui/Typography.jsx';
-import { api } from '../../lib/api.js';
+import React, { useState, useEffect, useCallback } from 'react';
+import { hospitalApi } from './api/hospitalApi.js';
+import { HospitalOverview } from './pages/HospitalOverview.jsx';
+import { BloodRequestsPage } from './pages/BloodRequestsPage.jsx';
+import { CreateRequestPage } from './pages/CreateRequestPage.jsx';
+import { RequestDetailsPage } from './pages/RequestDetailsPage.jsx';
+import { EmergencyAppealsPage } from './pages/EmergencyAppealsPage.jsx';
+import { DeliveriesPage } from './pages/DeliveriesPage.jsx';
+import { FindDonorsPage } from './pages/FindDonorsPage.jsx';
+import { BloodBanksPage } from './pages/BloodBanksPage.jsx';
+import { HospitalReportsPage } from './pages/HospitalReportsPage.jsx';
+import { HospitalNotificationsPage } from './pages/HospitalNotificationsPage.jsx';
+import { AlertTriangle, CheckCircle, Bell, Clock } from 'lucide-react';
 
-export function HospitalPortal({ token, userHospitalId = 1 }) {
-  const [requests, setRequests] = useState([]);
+export function HospitalPortal({
+  token,
+  userHospitalId = 1,
+  activeTab = 'overview',
+  showNewForm = false,
+  onCloseForm = () => {},
+}) {
+  const [currentPage, setCurrentPage] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const [form, setForm] = useState({
-    bloodTypeCode: 'O+',
-    componentCode: 'RBC',
-    unitsRequested: '2',
-    urgency: 'CRITICAL',
-    clinicalIndication: 'Emergency trauma resuscitation',
+  // Domain data
+  const [dashboardData, setDashboardData] = useState({
+    kpis: { active_requests: 0, critical_priority: 0, fulfilled_this_month: 0, total_requests: 0 },
+    recentRequests: [],
+    urgentShortages: [],
+    matchingOverview: null,
   });
+  const [requests, setRequests] = useState([]);
+  const [availableStock, setAvailableStock] = useState([]);
+  const [appeals, setAppeals] = useState([]);
 
-  const loadRequests = async () => {
+  // Selected request for details
+  const [selectedRequestId, setSelectedRequestId] = useState(null);
+  const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
+  const [selectedRequestProgress, setSelectedRequestProgress] = useState(null);
+
+  // Synchronize activeTab from DashboardLayout
+  useEffect(() => {
+    if (showNewForm) {
+      setCurrentPage('new-request');
+      return;
+    }
+    if (!activeTab || activeTab === 'overview') {
+      setCurrentPage('overview');
+    } else if (activeTab === 'requests') {
+      setCurrentPage('requests');
+    } else if (activeTab === 'new-request') {
+      setCurrentPage('new-request');
+    } else if (activeTab === 'donors') {
+      setCurrentPage('donors');
+    } else if (activeTab === 'banks') {
+      setCurrentPage('banks');
+    } else if (activeTab === 'emergency' || activeTab === 'appeals') {
+      setCurrentPage('appeals');
+    } else if (activeTab === 'tracking') {
+      setCurrentPage('tracking');
+    } else if (activeTab === 'notifications') {
+      setCurrentPage('notifications');
+    } else if (activeTab === 'reports') {
+      setCurrentPage('reports');
+    }
+  }, [activeTab, showNewForm]);
+
+  // Load all initial data
+  const loadData = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError('');
+    try {
+      const [dashRes, reqsRes, stockRes, appealsRes] = await Promise.allSettled([
+        hospitalApi.getDashboard(userHospitalId, token),
+        hospitalApi.getRequests({}, token),
+        hospitalApi.getAvailableStock(userHospitalId, token),
+        hospitalApi.getEmergencyAppeals(userHospitalId, token),
+      ]);
+
+      if (dashRes.status === 'fulfilled') {
+        setDashboardData(dashRes.value.data || {});
+      }
+      if (reqsRes.status === 'fulfilled') {
+        setRequests(reqsRes.value.data || []);
+      }
+      if (stockRes.status === 'fulfilled') {
+        setAvailableStock(stockRes.value.data || []);
+      }
+      if (appealsRes.status === 'fulfilled') {
+        setAppeals(appealsRes.value.data || []);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to load hospital operations data');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, userHospitalId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Fetch details when selecting a request
+  const handleSelectRequest = async (id) => {
+    setSelectedRequestId(id);
     setLoading(true);
     try {
-      const res = await api('/requests', {}, token);
-      setRequests(res.data || []);
+      const [detailRes, progRes] = await Promise.all([
+        hospitalApi.getRequestById(id, token),
+        hospitalApi.getRequestProgress(id, token).catch(() => ({ data: null })),
+      ]);
+      setSelectedRequestDetails(detailRes.data);
+      setSelectedRequestProgress(progRes.data);
+      setCurrentPage('details');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to load request details');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (token) loadRequests();
-  }, [token]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Create request handler
+  const handleCreateRequest = async (payload) => {
+    setLoading(true);
     setError('');
     setSuccess('');
     try {
-      const res = await api('/requests', {
-        method: 'POST',
-        body: JSON.stringify({
-          hospitalId: Number(userHospitalId),
-          bloodTypeCode: form.bloodTypeCode,
-          componentCode: form.componentCode,
-          unitsRequested: Number(form.unitsRequested),
-          urgency: form.urgency,
-          clinicalIndication: form.clinicalIndication.trim(),
-        }),
-      }, token);
-      setSuccess(`Emergency request created! Request ID: ${res.data.id}`);
-      loadRequests();
+      const res = await hospitalApi.createRequest(payload, token);
+      setSuccess(`Blood request #${res.data.id.slice(0, 8)} successfully submitted to network!`);
+      onCloseForm();
+      await loadData();
+      setCurrentPage('requests');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to submit blood request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cancel request handler
+  const handleCancelRequest = async (id, reason) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await hospitalApi.cancelRequest(id, reason, token);
+      setSuccess('Blood request cancelled and reserved units returned to stock.');
+      await loadData();
+      if (currentPage === 'details') {
+        handleSelectRequest(id);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to cancel blood request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Emergency appeal handlers
+  const handleCreateAppeal = async (payload) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await hospitalApi.createEmergencyAppeal(payload, token);
+      setSuccess(`Emergency appeal #${res.data.id.slice(0, 8)} initiated for shortage.`);
+      await loadData();
+      setCurrentPage('appeals');
+    } catch (err) {
+      setError(err.message || 'Failed to create emergency appeal');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEscalateAppeal = async (id, targetStage) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await hospitalApi.escalateEmergencyAppeal(id, targetStage, token);
+      setSuccess(`Emergency appeal escalated to ${targetStage}`);
+      await loadData();
+    } catch (err) {
+      setError(err.message || 'Failed to escalate emergency appeal');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Confirm Fulfillment Receipt
+  const handleReceiveFulfillment = async (formData) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await hospitalApi.receiveFulfillment(formData.fulfillmentId, formData, token);
+      setSuccess('Blood delivery receipt confirmed successfully! Units issued for hospital care.');
+      await loadData();
+      if (selectedRequestId) {
+        handleSelectRequest(selectedRequestId);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to confirm fulfillment receipt');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="hospital-portal-feature">
-      {error && <div className="notice error">{error}</div>}
-      {success && <div className="notice success">{success}</div>}
+    <div className="hospital-portal-container" style={{ minHeight: '80vh', padding: '16px 0 32px 0' }}>
+      {/* Alert Notices */}
+      {error && (
+        <div
+          className="notice error"
+          style={{
+            backgroundColor: '#FEE2E2',
+            border: '1px solid #FCA5A5',
+            color: '#B91C1C',
+            padding: '12px 18px',
+            borderRadius: 12,
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <AlertTriangle size={18} />
+          <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div
+          className="notice success"
+          style={{
+            backgroundColor: '#ECFDF5',
+            border: '1px solid #A7F3D0',
+            color: '#065F46',
+            padding: '12px 18px',
+            borderRadius: 12,
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <CheckCircle size={18} />
+          <span>{success}</span>
+        </div>
+      )}
 
-      <div className="surface-card" style={{ marginBottom: '1.5rem' }}>
-        <h3>Submit Emergency Blood Request</h3>
-        <p>
-          Broadcast urgent component requirement to coordinating blood banks and cluster facilities.
-        </p>
-        <form id="form-hospital-request" onSubmit={handleSubmit} className="form-grid">
-          <label>
-            Blood Type *
-            <select
-              id="req-blood-type"
-              value={form.bloodTypeCode}
-              onChange={(e) => setForm({ ...form, bloodTypeCode: e.target.value })}
-            >
-              {['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'].map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Component Code *
-            <select
-              id="req-component"
-              value={form.componentCode}
-              onChange={(e) => setForm({ ...form, componentCode: e.target.value })}
-            >
-              <option value="RBC">Red Blood Cells (RBC)</option>
-              <option value="WB">Whole Blood (WB)</option>
-              <option value="PLT">Platelets (PLT)</option>
-              <option value="FFP">Fresh Frozen Plasma (FFP)</option>
-              <option value="CRYO">Cryoprecipitate (CRYO)</option>
-            </select>
-          </label>
-          <label>
-            Units Requested *
-            <input
-              id="req-units"
-              type="number"
-              min="1"
-              max="20"
-              value={form.unitsRequested}
-              onChange={(e) => setForm({ ...form, unitsRequested: e.target.value })}
-            />
-          </label>
-          <label>
-            Urgency Level *
-            <select
-              id="req-urgency"
-              value={form.urgency}
-              onChange={(e) => setForm({ ...form, urgency: e.target.value })}
-            >
-              <option value="CRITICAL">CRITICAL (Immediate transfusion)</option>
-              <option value="URGENT">URGENT (Within 4 hours)</option>
-              <option value="ROUTINE">ROUTINE (Elective / Scheduled)</option>
-            </select>
-          </label>
-          <label style={{ gridColumn: '1 / -1' }}>
-            Clinical Indication *
-            <input
-              id="req-indication"
-              required
-              value={form.clinicalIndication}
-              onChange={(e) => setForm({ ...form, clinicalIndication: e.target.value })}
-            />
-          </label>
-          <button id="btn-submit-hospital-request" className="primary">
-            Submit Request <Send size={16} />
-          </button>
-        </form>
-      </div>
+      {/* View Router */}
+      {currentPage === 'overview' && (
+        <HospitalOverview
+          dashboardData={dashboardData}
+          loading={loading}
+          onNavigate={(page, filters) => setCurrentPage(page)}
+          onSelectRequest={handleSelectRequest}
+        />
+      )}
 
-      <div className="surface-card">
-        <h3>Hospital Blood Requests Status</h3>
-        {loading ? (
-          <p>Loading requests…</p>
-        ) : requests.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                  <th style={{ padding: '8px' }}>Component</th>
-                  <th style={{ padding: '8px' }}>Units</th>
-                  <th style={{ padding: '8px' }}>Urgency</th>
-                  <th style={{ padding: '8px' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((r) => (
-                  <tr key={r.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '8px' }}>{r.blood_type_code} {r.component_code}</td>
-                    <td style={{ padding: '8px' }}>{r.units_requested}</td>
-                    <td style={{ padding: '8px' }}>
-                      <Badge>{r.urgency}</Badge>
-                    </td>
-                    <td style={{ padding: '8px' }}>
-                      <Badge>{r.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No active hospital blood requests.</p>
-        )}
-      </div>
+      {currentPage === 'requests' && (
+        <BloodRequestsPage
+          requests={requests}
+          loading={loading}
+          onRefresh={loadData}
+          onSelectRequest={handleSelectRequest}
+          onCancelRequest={handleCancelRequest}
+          onNewRequest={() => setCurrentPage('new-request')}
+        />
+      )}
+
+      {currentPage === 'new-request' && (
+        <CreateRequestPage
+          hospitalId={userHospitalId}
+          onSubmit={handleCreateRequest}
+          onCancel={() => {
+            onCloseForm();
+            setCurrentPage('overview');
+          }}
+          loading={loading}
+        />
+      )}
+
+      {currentPage === 'details' && selectedRequestDetails && (
+        <RequestDetailsPage
+          request={selectedRequestDetails}
+          progressSummary={selectedRequestProgress}
+          onBack={() => setCurrentPage('requests')}
+          onCancelRequest={handleCancelRequest}
+          onReceiveFulfillment={handleReceiveFulfillment}
+          onInitiateAppeal={(req) => setCurrentPage('appeals')}
+        />
+      )}
+
+      {currentPage === 'appeals' && (
+        <EmergencyAppealsPage
+          appeals={appeals}
+          requests={requests}
+          hospitalId={userHospitalId}
+          loading={loading}
+          onCreateAppeal={handleCreateAppeal}
+          onEscalateAppeal={handleEscalateAppeal}
+          onRefresh={loadData}
+        />
+      )}
+
+      {currentPage === 'tracking' && (
+        <DeliveriesPage
+          requests={requests}
+          onReceiveFulfillment={handleReceiveFulfillment}
+          onSelectRequest={handleSelectRequest}
+          loading={loading}
+        />
+      )}
+
+      {currentPage === 'donors' && (
+        <FindDonorsPage
+          hospitalDistrict={dashboardData.recentRequests[0]?.hospital_district || 'CO'}
+          onInitiateAppeal={() => setCurrentPage('appeals')}
+        />
+      )}
+
+      {currentPage === 'banks' && (
+        <BloodBanksPage
+          availableStock={availableStock}
+          loading={loading}
+          onRefresh={loadData}
+          onRequestStock={() => setCurrentPage('new-request')}
+        />
+      )}
+
+      {currentPage === 'reports' && (
+        <HospitalReportsPage
+          kpis={dashboardData.kpis}
+          requests={requests}
+        />
+      )}
+
+      {currentPage === 'notifications' && (
+        <HospitalNotificationsPage
+          requests={requests}
+          appeals={appeals}
+          kpis={dashboardData.kpis}
+          onNavigate={(page) => setCurrentPage(page)}
+          onSelectRequest={handleSelectRequest}
+        />
+      )}
     </div>
   );
 }

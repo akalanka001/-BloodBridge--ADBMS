@@ -22,6 +22,15 @@ export class TransfersController {
     }
   }
 
+  async getTransferById(req, res, next) {
+    try {
+      const data = await transfersService.getTransferById(req.params.id);
+      res.json({ data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async dispatchTransfer(req, res, next) {
     try {
       const transfer = await transfersService.dispatchTransfer(req.params.id, req.user.id);

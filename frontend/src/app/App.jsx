@@ -2,35 +2,55 @@ import React, { useEffect, useState } from 'react';
 import { Navbar, Footer } from '../components/navigation/Navbar.jsx';
 import { Home } from '../features/public/Home.jsx';
 import { CampsPage } from '../features/camps/CampsPage.jsx';
-import { RegisterPage, LoginPage } from '../features/auth/AuthPages.jsx';
+import {
+  RegisterPage,
+  LoginPage,
+  ForgotPasswordPage,
+  ResetPasswordPage,
+  VerifyEmailPage,
+  AcceptInvitePage,
+} from '../features/auth/AuthPages.jsx';
 import { Portal } from '../features/portal/Portal.jsx';
 import { api } from '../lib/api.js';
-import { startingPage, navigate } from '../lib/navigation.js';
+import { authStorage, authApi } from '../lib/authApi.js';
+import { startingPage, navigate, checkRouteAccess, ROLE_PAGES } from '../lib/navigation.js';
 import { getSocket, disconnectSocket } from '../socket.js';
 
 export default function App() {
   const [page, setPage] = useState(startingPage());
-  const [session, setSession] = useState(() => {
-    try {
-      return JSON.parse(sessionStorage.getItem('bb_session') || 'null');
-    } catch {
-      return null;
-    }
-  });
+  const [session, setSession] = useState(() => authStorage.get());
   const [districts, setDistricts] = useState([]);
   const [district, setDistrict] = useState('');
   const [camps, setCamps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
 
-  // Hash-based navigation listener
+  // Hash-based navigation listener with route guard protection
   useEffect(() => {
-    const update = () => setPage(startingPage());
-    window.addEventListener('hashchange', update);
-    return () => window.removeEventListener('hashchange', update);
+    const handleRoute = () => {
+      const target = startingPage();
+      const currentSession = authStorage.get();
+      setSession(currentSession);
+      const access = checkRouteAccess(target, currentSession?.user);
+
+      if (!access.allowed) {
+        setAuthNotice(access.reason || 'Authentication required');
+        navigate(access.redirect);
+        setPage(access.redirect);
+        return;
+      }
+
+      setPage(target);
+    };
+
+    window.addEventListener('hashchange', handleRoute);
+    handleRoute();
+
+    return () => window.removeEventListener('hashchange', handleRoute);
   }, []);
 
-  // Fetch districts
+  // Fetch districts for camp search filter
   useEffect(() => {
     api('/locations/districts')
       .then((r) => setDistricts(r.data))
@@ -73,31 +93,61 @@ export default function App() {
   }, [session?.token]);
 
   const login = (r) => {
-    const s = { token: r.token, user: r.user };
-    sessionStorage.setItem('bb_session', JSON.stringify(s));
+    const s = { token: r.token, refreshToken: r.refreshToken, user: r.user };
+    authStorage.set(s);
     setSession(s);
-    navigate(
-      {
-        DONOR: 'donor',
-        HOSPITAL_STAFF: 'hospital',
-        BANK_STAFF: 'bank',
-        ADMIN: 'admin',
-      }[r.user.role] || 'home',
-    );
+    setAuthNotice('');
+
+    const targetRoute = ROLE_PAGES[r.user.role]?.id || 'home';
+    navigate(targetRoute);
   };
 
-  const logout = () => {
-    sessionStorage.removeItem('bb_session');
+  const logout = async () => {
+    await authApi.logout();
     setSession(null);
     disconnectSocket();
     navigate('home');
   };
 
+  const isPortal = ['donor', 'hospital', 'bank', 'admin'].includes(page);
+
+  if (isPortal) {
+    return (
+      <Portal
+        type={page}
+        session={session}
+        token={session?.token}
+        onLogout={logout}
+      />
+    );
+  }
+
   return (
     <>
-      <Navbar page={page} loggedIn={Boolean(session)} onLogout={logout} />
+      <Navbar
+        page={page}
+        loggedIn={Boolean(session)}
+        user={session?.user}
+        onLogout={logout}
+      />
+
       <main className="wrap main">
+        {authNotice && (
+          <div className="notice error" style={{ marginBottom: 20 }}>
+            <span>{authNotice}</span>
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => setAuthNotice('')}
+              style={{ marginLeft: 'auto' }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {page === 'home' && <Home camps={camps} />}
+
         {page === 'camps' && (
           <CampsPage
             camps={camps}
@@ -108,12 +158,15 @@ export default function App() {
             error={error}
           />
         )}
-        {['donor', 'hospital', 'bank', 'admin'].includes(page) && (
-          <Portal type={page} session={session} token={session?.token} />
-        )}
-        {page === 'signup' && <RegisterPage districts={districts} onDone={() => {}} />}
+
+        {page === 'signup' && <RegisterPage districts={districts} onDone={() => navigate('login')} />}
         {page === 'login' && <LoginPage onLogin={login} />}
+        {page === 'forgot-password' && <ForgotPasswordPage />}
+        {page === 'reset-password' && <ResetPasswordPage />}
+        {page === 'verify-email' && <VerifyEmailPage />}
+        {page === 'accept-invite' && <AcceptInvitePage />}
       </main>
+
       <Footer />
     </>
   );

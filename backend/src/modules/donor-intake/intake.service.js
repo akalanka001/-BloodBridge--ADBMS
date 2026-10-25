@@ -94,6 +94,14 @@ export class IntakeService {
     }
     return intakeRepository.recordCollection(data, userId);
   }
+
+  async listVisits(bankId = null) {
+    return intakeRepository.listVisits(bankId);
+  }
+
+  async listDonations(bankId = null) {
+    return intakeRepository.listDonations(bankId);
+  }
 }
 
 export const intakeService = new IntakeService();

@@ -1,18 +1,34 @@
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
 
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_must_be_set_in_production_min32chars';
+
 export async function authenticate(req, res, next) {
   try {
-    const token = /^Bearer (.+)$/i.exec(req.header('Authorization') || '')?.[1];
+    const authHeader = req.header('Authorization') || '';
+    const token = /^Bearer (.+)$/i.exec(authHeader)?.[1];
     if (!token) return res.status(401).json({ error: 'Authentication required' });
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+
+    const secret = process.env.JWT_SECRET || JWT_SECRET;
+    const payload = jwt.verify(token, secret);
     if (typeof payload.sub !== 'string') return res.status(401).json({ error: 'Invalid token' });
+
     const result = await pool.query(
-      'SELECT id, role, full_name, email FROM users WHERE id=$1 AND is_active=true',
+      'SELECT id, role, full_name, email, is_active FROM users WHERE id=$1',
       [payload.sub],
     );
-    if (!result.rows[0]) return res.status(401).json({ error: 'Account not active' });
-    req.user = result.rows[0];
+
+    const user = result.rows[0];
+    if (!user || !user.is_active) {
+      return res.status(401).json({ error: 'Account not active' });
+    }
+
+    req.user = {
+      id: user.id,
+      role: user.role,
+      fullName: user.full_name,
+      email: user.email,
+    };
     next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
@@ -29,4 +45,8 @@ export function requireRole(...roles) {
     }
     next();
   };
+}
+
+export function hasRole(user, ...roles) {
+  return Boolean(user && roles.includes(user.role));
 }

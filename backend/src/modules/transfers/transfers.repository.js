@@ -41,6 +41,39 @@ export class TransfersRepository {
     return rows;
   }
 
+  async getTransferById(transferId) {
+    const { rows } = await pool.query(
+      `SELECT t.*,
+              sb.name AS source_bank_name,
+              tb.name AS target_bank_name,
+              u_req.full_name AS requested_by_name,
+              u_disp.full_name AS dispatched_by_name,
+              u_rec.full_name AS received_by_name
+       FROM blood_bank_transfers t
+       JOIN blood_banks sb ON sb.id = t.source_bank_id
+       JOIN blood_banks tb ON tb.id = t.target_bank_id
+       LEFT JOIN users u_req ON u_req.id = t.requested_by
+       LEFT JOIN users u_disp ON u_disp.id = t.dispatched_by
+       LEFT JOIN users u_rec ON u_rec.id = t.received_by
+       WHERE t.id = $1`,
+      [transferId],
+    );
+
+    if (!rows.length) return null;
+    const transfer = rows[0];
+
+    const unitRows = await pool.query(
+      `SELECT tu.blood_unit_id, bu.blood_type_code, bu.component_code,
+              bu.release_status, bu.inventory_status, bu.expires_at, bu.volume_ml
+       FROM transfer_units tu
+       JOIN blood_units bu ON bu.id = tu.blood_unit_id
+       WHERE tu.transfer_id = $1`,
+      [transferId],
+    );
+    transfer.units = unitRows.rows;
+    return transfer;
+  }
+
   async dispatchTransfer(transferId, actorId) {
     return inTransaction(async (client) => {
       await client.query('CALL sp_dispatch_blood_transfer($1, $2)', [transferId, actorId]);

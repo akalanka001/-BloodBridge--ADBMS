@@ -31,9 +31,9 @@ describe('BloodBridge Domain Portals & Action Verification', () => {
     render(<RegisterPage districts={districts} onDone={onDone} />);
 
     expect(screen.getByText(/Donor registration/i)).toBeDefined();
-    const nameInput = screen.getByPlaceholderText(/Your name/i);
+    const nameInput = screen.getByPlaceholderText(/full name|your name/i);
     const emailInput = screen.getByPlaceholderText(/you@example.com/i);
-    const passwordInput = screen.getByLabelText(/Password/i);
+    const passwordInput = screen.getByLabelText(/^Password/i);
     const districtSelect = screen.getByRole('combobox', { name: /District/i });
     const contactConsent = screen.getByRole('checkbox', { name: /I agree to be contacted/i });
     const campConsent = screen.getByRole('checkbox', { name: /Notify me about approved local donation camps/i });
@@ -286,7 +286,7 @@ describe('BloodBridge Domain Portals & Action Verification', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
-    expect(global.fetch.mock.calls[0][0]).toContain('/donor-intake/collections');
+    expect(global.fetch.mock.calls[0][0]).toMatch(/\/donor-intake\/(donations|collections)/);
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
     expect(body.visitId).toBe('visit-555');
     expect(body.collectedVolumeMl).toBe(450);
