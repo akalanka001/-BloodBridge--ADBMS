@@ -61,12 +61,27 @@ describe('Member 1 — Complete Administrator Dashboard & Governance API', () =>
     `, [hashed]);
     testManagedUserId = managedRes.rows[0].id;
 
-    // 5. Existing hospital and bank IDs
-    const hRes = await pool.query('SELECT id FROM hospitals LIMIT 1');
-    testHospitalId = hRes.rows[0]?.id || 1;
+    // 5. Ensure reference location, hospital, and blood bank exist
+    const locRes = await pool.query(`
+      INSERT INTO locations (district_code, ds_code, town, address_line)
+      VALUES ('CO', 'COL', 'Colombo Central', 'Test Medical Road')
+      RETURNING id
+    `);
+    const testLocationId = locRes.rows[0].id;
 
-    const bRes = await pool.query('SELECT id FROM blood_banks LIMIT 1');
-    testBankId = bRes.rows[0]?.id || 1;
+    const hRes = await pool.query(`
+      INSERT INTO hospitals (name, location_id, is_verified)
+      VALUES ('Test Hospital Admin M1', $1, true)
+      RETURNING id
+    `, [testLocationId]);
+    testHospitalId = hRes.rows[0].id;
+
+    const bRes = await pool.query(`
+      INSERT INTO blood_banks (name, location_id, hospital_id, is_verified)
+      VALUES ('Test Blood Bank Admin M1', $1, $2, true)
+      RETURNING id
+    `, [testLocationId, testHospitalId]);
+    testBankId = bRes.rows[0].id;
   });
 
   // --- 1. RBAC & Security Gateway ---

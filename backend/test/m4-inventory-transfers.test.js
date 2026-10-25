@@ -40,14 +40,14 @@ describe('Member 4 — Donor Intake, Inventory & Inter-Bank Transfers (M4)', () 
       bankBId = Number(bbRes.rows[1].id);
     } else {
       const b1 = await pool.query(
-        `INSERT INTO blood_banks (name, code, location_id, is_active)
-         VALUES ('National Blood Center A', 'NBC-A-' || floor(random()*10000), $1, true)
+        `INSERT INTO blood_banks (name, location_id, is_verified)
+         VALUES ('National Blood Center A ' || floor(random()*10000), $1, true)
          RETURNING id`,
         [locationId],
       );
       const b2 = await pool.query(
-        `INSERT INTO blood_banks (name, code, location_id, is_active)
-         VALUES ('Regional Blood Center B', 'RBC-B-' || floor(random()*10000), $1, true)
+        `INSERT INTO blood_banks (name, location_id, is_verified)
+         VALUES ('Regional Blood Center B ' || floor(random()*10000), $1, true)
          RETURNING id`,
         [locationId],
       );

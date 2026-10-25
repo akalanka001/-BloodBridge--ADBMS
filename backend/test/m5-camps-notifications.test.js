@@ -38,10 +38,27 @@ describe('Member 5 — Donation Camps, Media & Multi-Channel Notifications (M5)'
       locationId = insLoc.rows[0].id;
     }
 
-    // 2. Resolve or create blood banks
+    // 2. Resolve or create two distinct blood banks
     const bbRes = await pool.query('SELECT id FROM blood_banks LIMIT 2');
-    bankAId = Number(bbRes.rows[0].id);
-    bankBId = Number(bbRes.rows[1]?.id || bbRes.rows[0].id);
+    if (bbRes.rows.length >= 2) {
+      bankAId = Number(bbRes.rows[0].id);
+      bankBId = Number(bbRes.rows[1].id);
+    } else {
+      const b1 = await pool.query(
+        `INSERT INTO blood_banks (name, location_id, is_verified)
+         VALUES ('Camp Coordinating Bank A ' || floor(random()*10000), $1, true)
+         RETURNING id`,
+        [locationId],
+      );
+      const b2 = await pool.query(
+        `INSERT INTO blood_banks (name, location_id, is_verified)
+         VALUES ('Camp Foreign Bank B ' || floor(random()*10000), $1, true)
+         RETURNING id`,
+        [locationId],
+      );
+      bankAId = Number(b1.rows[0].id);
+      bankBId = Number(b2.rows[0].id);
+    }
 
     // 3. Resolve or create organizer
     const orgRes = await pool.query('SELECT id FROM camp_organizers LIMIT 1');

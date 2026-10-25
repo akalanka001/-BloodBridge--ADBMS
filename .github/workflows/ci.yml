@@ -148,6 +148,9 @@ jobs:
       - name: Verify running container health
         run: docker compose ps
 
+      - name: Ensure complete database migrations are applied
+        run: docker compose exec -T db /docker-entrypoint-initdb.d/00-bootstrap.sh
+
       - name: Seed demo staff and camp fixture
         run: docker compose exec -e DEMO_PASSWORD=CiDemoStaffPass123! api node scripts/seed-demo-staff.js
 

@@ -18,11 +18,16 @@ describe('Member 2 — Donor Dashboard, History, Review & Preferences (M2)', () 
     if (bbRes.rows.length > 0) {
       bloodBankId = bbRes.rows[0].id;
     } else {
-      const ins = await pool.query(`
-        INSERT INTO blood_banks (name, district_code, contact_phone, latitude, longitude)
-        VALUES ('Test Blood Bank M2', 'CO', '0112000000', 6.9271, 79.8612)
+      const loc = await pool.query(`
+        INSERT INTO locations (district_code, ds_code, town)
+        VALUES ('CO', 'COL', 'Colombo')
         RETURNING id
       `);
+      const ins = await pool.query(`
+        INSERT INTO blood_banks (name, location_id, is_verified)
+        VALUES ('Test Blood Bank M2', $1, true)
+        RETURNING id
+      `, [loc.rows[0].id]);
       bloodBankId = ins.rows[0].id;
     }
 

@@ -222,6 +222,25 @@ describe('Member 1 — Auth, RBAC, Sessions & Geography (M1-A04..A17)', () => {
 
   // M1-A10: Staff invite role assignment protected (Admin only)
   it('M1-A10: allows Admin to create staff invitation, but blocks non-admin (403)', async () => {
+    // Ensure a blood bank exists for invitation
+    let inviteBankId;
+    const bbRow = await pool.query('SELECT id FROM blood_banks LIMIT 1');
+    if (bbRow.rows.length > 0) {
+      inviteBankId = bbRow.rows[0].id;
+    } else {
+      const loc = await pool.query(`
+        INSERT INTO locations (district_code, ds_code, town)
+        VALUES ('CO', 'COL', 'Colombo')
+        RETURNING id
+      `);
+      const createdBank = await pool.query(`
+        INSERT INTO blood_banks (name, location_id, is_verified)
+        VALUES ('Test Invite Bank M1', $1, true)
+        RETURNING id
+      `, [loc.rows[0].id]);
+      inviteBankId = createdBank.rows[0].id;
+    }
+
     // Non-admin attempt
     const donorInvite = await request(app)
       .post('/api/v1/auth/invite-staff')
@@ -229,7 +248,7 @@ describe('Member 1 — Auth, RBAC, Sessions & Geography (M1-A04..A17)', () => {
       .send({
         email: `staff_${testTimestamp}@example.com`,
         role: 'BANK_STAFF',
-        bloodBankId: 1,
+        bloodBankId: inviteBankId,
       });
 
     assert.equal(donorInvite.status, 403);
@@ -242,7 +261,7 @@ describe('Member 1 — Auth, RBAC, Sessions & Geography (M1-A04..A17)', () => {
       .send({
         email: staffEmail,
         role: 'BANK_STAFF',
-        bloodBankId: 1,
+        bloodBankId: inviteBankId,
       });
 
     assert.equal(adminInvite.status, 201);
