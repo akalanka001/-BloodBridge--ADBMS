@@ -35,6 +35,9 @@ router.post('/:id/approve', authenticate, requireRole('BANK_STAFF', 'ADMIN'), (r
 router.post('/:id/cancel', authenticate, requireRole('BANK_STAFF', 'ADMIN'), (req, res, next) =>
   campsController.cancelCamp(req, res, next)
 );
+router.post('/:id/reject', authenticate, requireRole('BANK_STAFF', 'ADMIN'), (req, res, next) =>
+  campsController.cancelCamp(req, res, next)
+);
 
 // 5. Donor Registrations & Cancellation
 router.post('/:id/registrations', authenticate, requireRole('DONOR'), (req, res, next) =>
