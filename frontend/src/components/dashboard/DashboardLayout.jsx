@@ -43,6 +43,7 @@ import {
   MailCheck,
   Image as ImageIcon,
   UserCheck,
+  Package,
 } from 'lucide-react';
 import { navigate } from '../../lib/navigation.js';
 
@@ -123,14 +124,19 @@ export function DashboardLayout({
       tag: 'ADMINISTRATION',
       menu: [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+        { id: 'demand', label: 'Blood Demand', icon: Droplets },
+        { id: 'stock', label: 'Stock Reports', icon: Package },
+        { id: 'camps', label: 'Camp Analytics', icon: CalendarDays },
+        { id: 'transfers', label: 'Transfers Report', icon: Truck },
+        { id: 'benchmarks', label: 'Performance Lab', icon: Database },
+        { id: 'etl', label: 'ETL Pipeline', icon: Activity },
+        { id: 'data-quality', label: 'Data Quality', icon: ShieldCheck },
+        { id: 'users', label: 'Users and roles', icon: Users },
+        { id: 'institutions', label: 'Institutions', icon: Building2 },
         { id: 'camp-oversight', label: 'Camp Oversight', icon: ClipboardList },
         { id: 'camp-approvals', label: 'Camp Approvals', icon: BadgeCheck },
         { id: 'notification-monitoring', label: 'Notification Monitoring', icon: MailCheck },
-        { id: 'users', label: 'Users and roles', icon: Users },
-        { id: 'institutions', label: 'Institutions', icon: Building2 },
-        { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-        { id: 'benchmarks', label: 'Performance lab', icon: Database },
-        { id: 'etl', label: 'ETL pipeline', icon: Activity },
       ],
       defaultAction: null,
     },
