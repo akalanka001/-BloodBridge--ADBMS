@@ -3,7 +3,7 @@ import { BadRequestError, NotFoundError, ForbiddenError } from '../../infrastruc
 
 export class RequestsRepository {
   async listRequestsByStaff(userId, filters = {}) {
-    const conditions = ['sm.user_id = $1', 'sm.is_active = true'];
+    const conditions = ['EXISTS (SELECT 1 FROM staff_memberships sm WHERE sm.hospital_id = br.hospital_id AND sm.user_id = $1 AND sm.is_active = true)'];
     const params = [userId];
     let paramIndex = 2;
 
@@ -61,17 +61,20 @@ export class RequestsRepository {
       paramIndex++;
     }
 
+    const where = conditions.join(' AND ');
+    const countResult = await pool.query(`SELECT count(*)::int AS total FROM v_hospital_requests_overview br WHERE ${where}`, params);
+    const limit = filters.limit ?? 10;
+    const offset = filters.offset ?? 0;
     const query = `
       SELECT br.*
       FROM v_hospital_requests_overview br
-      JOIN staff_memberships sm ON sm.hospital_id = br.hospital_id
-      WHERE ${conditions.join(' AND ')}
-      ORDER BY br.created_at DESC
-      LIMIT 100
+      WHERE ${where}
+      ORDER BY br.created_at DESC, br.id DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const { rows } = await pool.query(query, params);
-    return rows;
+    const { rows } = await pool.query(query, [...params, limit, offset]);
+    return { data: rows, pagination: { total: Number(countResult.rows[0]?.total ?? 0), limit, offset } };
   }
 
   async isStaffAtHospital(userId, hospitalId) {
@@ -188,6 +191,14 @@ export class RequestsRepository {
       [requestId],
     );
     return rows[0]?.summary || null;
+  }
+
+  async matchingStockForItem(item) {
+    const { rows } = await pool.query(`SELECT count(DISTINCT blood_bank_id)::int AS facilities,
+      count(*)::int AS units FROM blood_units
+      WHERE blood_type_code = $1 AND component_code = $2 AND release_status = 'RELEASED'
+      AND inventory_status = 'IN_STOCK' AND expires_at > now()`, [item.bloodTypeCode, item.componentCode]);
+    return rows[0];
   }
 
   async cancelRequest(requestId, userId, reason) {

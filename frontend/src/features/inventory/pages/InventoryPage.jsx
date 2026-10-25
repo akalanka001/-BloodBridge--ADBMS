@@ -1,17 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Droplet, Search, Filter, ShieldCheck, CheckCircle2, XCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function InventoryPage({
   units = [],
   loading = false,
   onRefresh = () => {},
   onReleaseUnit = () => {},
+  pagination,
+  onPageChange,
+  onFiltersChange,
+  filters = {},
 }) {
-  const [filterComponent, setFilterComponent] = useState('ALL');
-  const [filterGroup, setFilterGroup] = useState('ALL');
-  const [filterRelease, setFilterRelease] = useState('ALL');
-  const [filterInventory, setFilterInventory] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  useEffect(() => { onFiltersChangeRef.current = onFiltersChange; }, [onFiltersChange]);
+  const [filterComponent, setFilterComponent] = useState(filters.componentCode || 'ALL');
+  const [filterGroup, setFilterGroup] = useState(filters.bloodTypeCode || 'ALL');
+  const [filterRelease, setFilterRelease] = useState(filters.releaseStatus || 'ALL');
+  const [filterInventory, setFilterInventory] = useState(filters.inventoryStatus || 'ALL');
+  const [searchQuery, setSearchQuery] = useState(filters.search || '');
+  useEffect(() => {
+    setFilterComponent(filters.componentCode || 'ALL'); setFilterGroup(filters.bloodTypeCode || 'ALL');
+    setFilterRelease(filters.releaseStatus || 'ALL'); setFilterInventory(filters.inventoryStatus || 'ALL'); setSearchQuery(filters.search || '');
+  }, [filters]);
 
   // Selected unit for release modal
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -19,7 +30,13 @@ export function InventoryPage({
   const [releaseNotes, setReleaseNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  const filtered = units.filter((u) => {
+  useEffect(() => {
+    if (!onFiltersChangeRef.current) return undefined;
+    const timer = setTimeout(() => onFiltersChangeRef.current?.({ componentCode: filterComponent === 'ALL' ? '' : filterComponent, bloodTypeCode: filterGroup === 'ALL' ? '' : filterGroup, releaseStatus: filterRelease === 'ALL' ? '' : filterRelease, inventoryStatus: filterInventory === 'ALL' ? '' : filterInventory, search: searchQuery.trim() }), 250);
+    return () => clearTimeout(timer);
+  }, [filterComponent, filterGroup, filterRelease, filterInventory, searchQuery]);
+
+  const filtered = onFiltersChange ? units : units.filter((u) => {
     if (filterComponent !== 'ALL' && u.component_code !== filterComponent) return false;
     if (filterGroup !== 'ALL' && u.blood_type_code !== filterGroup) return false;
     if (filterRelease !== 'ALL' && u.release_status !== filterRelease) return false;
@@ -151,7 +168,7 @@ export function InventoryPage({
         {/* Component Filter */}
         <select
           value={filterComponent}
-          onChange={(e) => setFilterComponent(e.target.value)}
+            onChange={(e) => setFilterComponent(e.target.value)}
           style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #D1D5DB', fontSize: 13 }}
         >
           <option value="ALL">All Components</option>
@@ -198,7 +215,6 @@ export function InventoryPage({
           <option value="DISCARDED">DISCARDED</option>
         </select>
       </div>
-
       {/* Table */}
       <div
         className="dash-card"
@@ -325,6 +341,7 @@ export function InventoryPage({
             </tbody>
           </table>
         </div>
+        {pagination && <Pagination page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} onPageChange={onPageChange} loading={loading} />}
       </div>
 
       {/* Release Action Modal */}

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Truck, Send, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export function TransferCreateForm({
-  userBankId = 1,
+  userBankId,
   availableUnits = [],
   onSubmit = () => {},
   loading = false,

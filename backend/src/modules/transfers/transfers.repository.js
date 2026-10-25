@@ -34,7 +34,15 @@ export class TransfersRepository {
     });
   }
 
-  async listTransfers(bankId = null) {
+  async listTransfers(bankId = null, filters = {}) {
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
+    const { rows: countRows } = await pool.query(
+      `SELECT count(*)::int AS total FROM blood_bank_transfers t
+       WHERE ($1::bigint IS NULL OR t.source_bank_id = $1 OR t.target_bank_id = $1)`,
+      [bankId || null],
+    );
+    const total = countRows[0]?.total || 0;
     const { rows } = await pool.query(
       `SELECT t.*,
               sb.name AS source_bank_name,
@@ -44,11 +52,11 @@ export class TransfersRepository {
        JOIN blood_banks sb ON sb.id = t.source_bank_id
        JOIN blood_banks tb ON tb.id = t.target_bank_id
        WHERE ($1::bigint IS NULL OR t.source_bank_id = $1 OR t.target_bank_id = $1)
-       ORDER BY t.created_at DESC
-       LIMIT 100`,
-      [bankId || null],
+       ORDER BY t.created_at DESC, t.id DESC
+       LIMIT $2 OFFSET $3`,
+      [bankId || null, limit, offset],
     );
-    return rows;
+    return { data: rows, pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getTransferById(transferId) {

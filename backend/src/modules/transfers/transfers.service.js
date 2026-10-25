@@ -26,7 +26,7 @@ export class TransfersService {
     return transfersRepository.createTransfer({ ...data, requestedBy: user.id });
   }
 
-  async getTransfers(bankId, user) {
+  async getTransfers(bankId, user, filters = {}) {
     let targetBankId = bankId;
     if (user.role === 'BANK_STAFF') {
       const userBankId = await bankRepository.getUserBankId(user.id);
@@ -38,7 +38,7 @@ export class TransfersService {
       }
       targetBankId = userBankId;
     }
-    return transfersRepository.listTransfers(targetBankId);
+    return transfersRepository.listTransfers(targetBankId, filters);
   }
 
   async getTransferById(transferId, user) {

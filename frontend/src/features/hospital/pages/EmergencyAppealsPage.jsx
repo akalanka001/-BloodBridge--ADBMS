@@ -20,6 +20,8 @@ export function EmergencyAppealsPage({
   onCreateAppeal = () => {},
   onEscalateAppeal = () => {},
   onRefresh = () => {},
+  initialRequestId = '',
+  initialItemId = '',
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedAppeal, setSelectedAppeal] = useState(null);
@@ -244,9 +246,11 @@ export function EmergencyAppealsPage({
             <EmergencyAppealForm
               requests={requests}
               hospitalId={hospitalId}
-              onSubmit={(payload) => {
-                onCreateAppeal(payload);
-                setShowCreateModal(false);
+              initialRequestId={initialRequestId}
+              initialItemId={initialItemId}
+              onSubmit={async (payload) => {
+                const result = await onCreateAppeal(payload);
+                if (result) setShowCreateModal(false);
               }}
               onCancel={() => setShowCreateModal(false)}
               loading={loading}

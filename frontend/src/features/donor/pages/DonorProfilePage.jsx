@@ -23,8 +23,8 @@ export function DonorProfilePage({ profile, token, onProfileUpdate }) {
     weightKg: profile?.weight_kg || '',
     town: profile?.town || '',
     bloodTypeCode: profile?.blood_type_code || '',
-    provinceCode: profile?.province_code || 'WP',
-    districtCode: profile?.district_code || 'CO',
+    provinceCode: profile?.province_code || '',
+    districtCode: profile?.district_code || '',
     dsCode: profile?.ds_code || '',
     gnCode: profile?.gn_code || '',
   });
@@ -45,6 +45,7 @@ export function DonorProfilePage({ profile, token, onProfileUpdate }) {
         weightKg: profile.weight_kg ?? prev.weightKg,
         town: profile.town || prev.town,
         bloodTypeCode: profile.blood_type_code || prev.bloodTypeCode,
+        provinceCode: profile.province_code || '',
         districtCode: profile.district_code || prev.districtCode,
         dsCode: profile.ds_code || prev.dsCode,
         gnCode: profile.gn_code || prev.gnCode,
@@ -60,8 +61,8 @@ export function DonorProfilePage({ profile, token, onProfileUpdate }) {
   const handleGeoChange = (geo) => {
     setFormData((prev) => ({
       ...prev,
-      provinceCode: geo.provinceCode || prev.provinceCode,
-      districtCode: geo.districtCode || prev.districtCode,
+      provinceCode: geo.provinceCode ?? prev.provinceCode,
+      districtCode: geo.districtCode ?? prev.districtCode,
       dsCode: geo.dsCode || null,
       gnCode: geo.gnCode || null,
     }));
@@ -225,7 +226,7 @@ export function DonorProfilePage({ profile, token, onProfileUpdate }) {
                 <div className="relative">
                   <input
                     type="text"
-                    value={formData.bloodTypeCode || 'O+'}
+                  value={formData.bloodTypeCode || 'Unknown'}
                     disabled
                     className="form-control bg-emerald-50 text-emerald-900 font-bold pl-9 cursor-not-allowed"
                   />

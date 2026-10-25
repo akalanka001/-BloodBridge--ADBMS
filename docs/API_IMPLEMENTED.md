@@ -47,6 +47,29 @@
 | POST | `/transfers/:id/dispatch` | Bank staff | All-or-nothing atomic unit validation and dispatch by authorized source-bank staff |
 | POST | `/transfers/:id/receive` | Bank staff | Acknowledge receipt with condition notes (3-arg `sp_receive_blood_transfer`) by destination staff |
 
+## Portal pagination and scope updates
+
+These routes accept bounded `limit` (1–100) and nonnegative `offset`; the UI uses 10 rows by default and advances with the server-reported total. List responses use `pagination: { limit, offset, total, totalPages }` unless stated otherwise. Empty filters are omitted. Staff bank queries remain restricted to an active membership for the requested `bankId`.
+
+| Method | Route | Query filters | Response |
+|---|---|---|---|
+| GET | `/donors/me/donations` | `limit`, `offset`, `search`, `year` | `{ data: Donation[], pagination }` |
+| GET | `/donors/me/appointments` | `limit`, `offset`, `search` | `{ data: Appointment[], pagination }` |
+| GET | `/notifications/me` | `limit`, `offset`, `category`, `status`, `search` | `{ data: { notifications, total, unreadCount, pagination } }`; `unreadCount` is global to the signed-in user |
+| GET | `/notifications/delivery-status` | `limit`, `offset`, `channel`, `status`, `search` | `{ data: Delivery[], count, pagination }`; destination contact values are masked |
+| GET | `/inventory/units` | `bankId`, blood group, component, release/stock status, `search`, `limit`, `offset` | `{ data: BloodUnit[], count, pagination }` |
+| GET | `/inventory/expiry-alerts` | `bankId`, `urgency`, `limit`, `offset` | `{ data: BloodUnit[], count, pagination }` |
+| GET | `/inventory/movements` | `bankId`, `action`, `search`, `limit`, `offset` | `{ data: Movement[], count, pagination }` |
+| GET | `/bank/requests` | `bankId`, `limit`, `offset` | `{ data: Request[], count, pagination }` |
+| GET | `/transfers` | `bankId`, `limit`, `offset` | `{ data: Transfer[], count, pagination }` |
+| GET | `/camps`, `/camps/managed`, `/camps/:id/registrations` | Existing geographic/status/search filters plus `limit` or `pageSize`, `offset` | `{ data: CampOrRegistration[], pagination }` |
+
+`GET /auth/memberships` returns `{ memberships: [...] }`. The bank portal uses these active assignments to select the working blood bank; it does not infer a bank from a fixed ID. Requests that create, release, allocate, or transfer units remain validated by the authenticated server and database routines.
+
+Emergency appeal creation can record zero identified candidates when the selected geographic stage is more specific than the hospital's available district/DS/GN data. Staff can then broaden outreach explicitly; the API does not invent candidates or return a false count.
+
+Camp approval API access permits administrators and the coordinating bank staff, but the database procedure in an already-applied migration currently permits only bank staff. Draft migration `021_camp_approval_authorization.sql` aligns the procedure with the route while keeping the real approving actor in the audit log. It requires database-lead approval before it is applied to a shared database.
+
 ## Example requests
 
 ### 1. Create a donor account

@@ -11,3 +11,5 @@ coverage/
 backend/uploads/*
 !backend/uploads/**/.gitkeep
 /uploads/
+.taste-skill/
+output/

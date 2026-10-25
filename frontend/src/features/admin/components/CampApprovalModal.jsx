@@ -18,6 +18,9 @@ export function CampApprovalModal({ isOpen, onClose, token, camp = null, onSucce
     setLoading(true);
 
     try {
+      if (!camp.id || camp.status !== 'PENDING') {
+        throw new Error('Only a pending camp with a valid reference can be reviewed. Refresh the approval queue.');
+      }
       if (decision === 'APPROVE') {
         await approveCamp(token, camp.id);
         setSuccess('Donation camp approved successfully');
@@ -244,7 +247,7 @@ export function CampApprovalModal({ isOpen, onClose, token, camp = null, onSucce
                 rows={3}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="State specific reason for audit log and organizer feedback…"
+                placeholder="State the reason for this decision…"
                 className="reg-input"
                 style={{ width: '100%', height: 'auto', padding: '10px 12px', fontSize: 13, resize: 'vertical' }}
               />
@@ -263,7 +266,7 @@ export function CampApprovalModal({ isOpen, onClose, token, camp = null, onSucce
             <button
               id="btn-submit-camp-approval"
               type="submit"
-              disabled={loading || (decision === 'REJECT' && rejectReason.trim().length < 3)}
+              disabled={loading || !camp.id || camp.status !== 'PENDING' || (decision === 'REJECT' && rejectReason.trim().length < 4)}
               style={{
                 flex: 1,
                 height: 42,

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserPlus, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export function WalkInRegistrationForm({
-  userBankId = 1,
+  userBankId,
   onRegister = () => {},
   loading = false,
 }) {

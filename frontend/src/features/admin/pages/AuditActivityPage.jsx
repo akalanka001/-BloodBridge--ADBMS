@@ -10,10 +10,13 @@ import {
   FileText,
 } from 'lucide-react';
 import { getAuditLogs } from '../api/adminApi.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function AuditActivityPage({ token }) {
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,7 +31,8 @@ export function AuditActivityPage({ token }) {
       const res = await getAuditLogs(token, {
         action: actionFilter.trim() || undefined,
         entityName: entityFilter.trim() || undefined,
-        limit: 50,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
       });
       setLogs(res.data?.logs || []);
       setTotal(res.data?.total || 0);
@@ -41,11 +45,12 @@ export function AuditActivityPage({ token }) {
 
   useEffect(() => {
     loadAuditLogs();
-  }, [token, entityFilter]);
+  }, [token, entityFilter, page, pageSize]);
+  useEffect(() => { setPage(1); }, [entityFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    loadAuditLogs();
+    if (page !== 1) setPage(1); else loadAuditLogs();
   };
 
   return (
@@ -235,6 +240,8 @@ export function AuditActivityPage({ token }) {
           </div>
         )}
       </div>
+      {!loading && <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />}
     </div>
   );
 }

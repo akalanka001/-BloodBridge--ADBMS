@@ -15,8 +15,14 @@ export class BankController {
   async getIncomingRequests(req, res, next) {
     try {
       const bankId = req.query.bankId || req.query.bloodBankId;
-      const data = await bankService.getIncomingRequests(bankId, req.user);
-      res.json({ data });
+      const requestedLimit = Number(req.query.limit);
+      const requestedOffset = Number(req.query.offset);
+      const filters = {
+        limit: Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(100, requestedLimit) : 10,
+        offset: Number.isInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0,
+      };
+      const result = await bankService.getIncomingRequests(bankId, req.user, filters);
+      res.json({ data: result.data, count: result.pagination.total, pagination: result.pagination });
     } catch (err) {
       next(err);
     }

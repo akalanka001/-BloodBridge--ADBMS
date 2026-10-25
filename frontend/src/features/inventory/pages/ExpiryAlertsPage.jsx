@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { Clock, AlertTriangle, AlertCircle, Trash2, CheckCircle2 } from 'lucide-react';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function ExpiryAlertsPage({
   alerts = [],
   loading = false,
   onRefresh = () => {},
   onDiscardUnit = () => {},
+  pagination,
+  onPageChange,
+  onFilterChange,
+  selectedFilter = 'ALL',
 }) {
-  const [filter, setFilter] = useState('ALL');
+  const [filter, setFilter] = useState(selectedFilter);
+  React.useEffect(() => { setFilter(selectedFilter); }, [selectedFilter]);
 
-  const filtered = alerts.filter((item) => {
+  const filtered = onFilterChange ? alerts : alerts.filter((item) => {
     if (filter === 'CRITICAL') return item.alert_urgency === 'CRITICAL';
     if (filter === 'WARNING') return item.alert_urgency === 'WARNING';
     if (filter === 'EXPIRED') return item.alert_urgency === 'EXPIRED';
@@ -37,15 +43,15 @@ export function ExpiryAlertsPage({
         {/* Filter Pills */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
-            { id: 'ALL', label: `All Alerts (${alerts.length})` },
-            { id: 'CRITICAL', label: `Critical <=48h (${criticalCount})` },
-            { id: 'WARNING', label: `Warning <=7d (${warningCount})` },
-            { id: 'EXPIRED', label: `Expired (${expiredCount})` },
+            { id: 'ALL', label: onFilterChange ? 'All Alerts' : `All Alerts (${alerts.length})` },
+            { id: 'CRITICAL', label: onFilterChange ? 'Critical <=48h' : `Critical <=48h (${criticalCount})` },
+            { id: 'WARNING', label: onFilterChange ? 'Warning <=7d' : `Warning <=7d (${warningCount})` },
+            { id: 'EXPIRED', label: onFilterChange ? 'Expired' : `Expired (${expiredCount})` },
           ].map((pill) => (
             <button
               key={pill.id}
               type="button"
-              onClick={() => setFilter(pill.id)}
+              onClick={() => { setFilter(pill.id); onFilterChange?.(pill.id === 'ALL' ? '' : pill.id); }}
               style={{
                 padding: '7px 14px',
                 borderRadius: 20,
@@ -62,7 +68,6 @@ export function ExpiryAlertsPage({
           ))}
         </div>
       </div>
-
       {/* Safety Notice */}
       <div
         style={{
@@ -79,8 +84,7 @@ export function ExpiryAlertsPage({
       >
         <AlertTriangle size={20} color="#D97706" style={{ flexShrink: 0 }} />
         <div>
-          <strong>Quality Protocol:</strong> In accordance with NBTS cold-chain regulations, component units within 48 hours
-          of expiry are prioritized for routine compatibility cross-matches or inter-bank cluster transfers before expiration.
+          <strong>Operational reminder:</strong> The alert windows help staff review approaching expiry. Follow applicable storage and quality procedures; this prototype does not determine clinical use or transfusion suitability.
         </div>
       </div>
 
@@ -171,6 +175,7 @@ export function ExpiryAlertsPage({
           </table>
         </div>
       </div>
+      {pagination && <Pagination page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} onPageChange={onPageChange} loading={loading} />}
     </div>
   );
 }

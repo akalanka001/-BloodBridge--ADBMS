@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import App from './app/App.jsx';
 
 describe('BloodBridge Frontend Application (Member 1)', () => {
@@ -72,7 +72,7 @@ describe('BloodBridge Frontend Application (Member 1)', () => {
   });
 
   // M1-A02: Role-aware navigation when logged in
-  it('M1-A02: shows Dashboard link, user badge, and Log out button when authenticated', async () => {
+  it('M1-A02: shows Overview navigation, user badge, and account actions when authenticated', async () => {
     sessionStorage.setItem('bb_session', JSON.stringify({
       token: 'mock.donor.token',
       user: { id: '00000000-0000-0000-0000-000000000001', role: 'DONOR', fullName: 'Anura Kumara', email: 'anura@example.com' },
@@ -81,8 +81,9 @@ describe('BloodBridge Frontend Application (Member 1)', () => {
     window.location.hash = '#donor';
     await act(async () => { render(<App />); });
 
-    expect(screen.getByRole('link', { name: /Dashboard/i })).toBeDefined();
-    expect(screen.getByRole('button', { name: /Log out/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Overview/i })).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: /Anura/ }));
+    expect(await screen.findByRole('button', { name: /Log out/i })).toBeDefined();
     expect(screen.getAllByText(/Anura/i).length).toBeGreaterThan(0);
   });
 

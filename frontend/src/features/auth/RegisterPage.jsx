@@ -4,6 +4,8 @@ import {
   ShieldAlert,
   CheckCircle,
   User,
+  Heart,
+  MapPin,
   Mail,
   Lock,
   Eye,
@@ -11,11 +13,7 @@ import {
   Phone,
   Calendar,
   Scale,
-  MapPin,
-  Map,
-  Home,
-  Droplet,
-  ChevronDown,
+  ShieldCheck,
 } from 'lucide-react';
 import { authApi } from '../../lib/authApi.js';
 import { navigate } from '../../lib/navigation.js';
@@ -50,13 +48,17 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
     phone: '',
     birthDate: '',
     weightKg: '',
+    province: 'Western',
     districtCode: '',
+    dsDivision: '',
+    gnDivision: '',
     town: '',
     bloodTypeCode: '',
     availableForContact: false,
     campNotificationsOptIn: false,
     smsConsent: false,
     emailConsent: false,
+    emergencyAppealOptIn: false,
   });
 
   const [state, setState] = useState({ loading: false, error: '', success: '', devToken: '' });
@@ -66,7 +68,6 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
       setDistrictsList(propDistricts);
       return;
     }
-    // Fetch districts from backend
     fetch('/api/v1/geography/districts')
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data) => {
@@ -75,7 +76,7 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
         }
       })
       .catch(() => {
-        // Keep fallback districts
+        // Retain fallback districts
       });
   }, [propDistricts]);
 
@@ -95,6 +96,15 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
   };
 
   const currentAge = calculateAge(form.birthDate);
+
+  const calculateStrength = (pwd) => {
+    if (!pwd) return { percent: 0, color: 'var(--red)' };
+    const score = Math.min(100, (pwd.length / 16) * 75 + (/[0-9]/.test(pwd) ? 12 : 0) + (/[!@#$%^&*]/.test(pwd) ? 13 : 0));
+    const color = score > 85 ? '#16866c' : score > 55 ? '#d39936' : 'var(--red)';
+    return { percent: score, color };
+  };
+
+  const strength = calculateStrength(form.password);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -151,6 +161,7 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
         campNotificationsOptIn: form.campNotificationsOptIn,
         smsConsent: form.smsConsent,
         emailConsent: form.emailConsent,
+        emergencyAppealOptIn: form.emergencyAppealOptIn,
       };
 
       const res = await authApi.registerDonor(payload);
@@ -167,23 +178,33 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
   };
 
   return (
-    <div className="auth-layout" style={{ padding: '32px 16px' }}>
-      <section className="reg-card">
-        {/* Header Tag */}
-        <div className="reg-badge-row">
-          <span className="reg-badge-pill">Donor registration</span>
-          <span className="reg-badge-sub">· Academic Prototype</span>
+    <div className="container register-zone view" style={{ paddingBottom: 45 }}>
+      <div className="register-card">
+        {/* Header Tag and Title */}
+        <div className="register-head">
+          <div>
+            <span className="tag">
+              <Heart size={13} fill="currentColor" />
+              <span>DONOR REGISTRATION</span>
+            </span>
+            <h1>Join the BloodBridge community</h1>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
+              A few details help connect you with nearby opportunities. Clinical eligibility is assessed by authorized staff.
+            </p>
+          </div>
+          <span className="icon-tile" style={{ flexShrink: 0 }}>
+            <Heart size={26} />
+          </span>
         </div>
 
-        {/* Title & Subtitle */}
-        <h1 className="reg-title">Join the BloodBridge community</h1>
-        <p className="reg-subtitle">
-          Connect with local blood donation drives and emergency appeals in Sri Lanka. Use fictional
-          demonstration data during evaluation.
-        </p>
+        {/* Disclaimer Note */}
+        <div className="note" style={{ marginTop: 22, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <ShieldCheck size={18} color="#16866c" />
+          <span>Registration is not medical clearance. Optional notification consents remain off until you choose them.</span>
+        </div>
 
-        {/* National Donor Eligibility Criteria Banner */}
-        <div className="reg-alert-box">
+        {/* National Eligibility Criteria Alert Box */}
+        <div className="reg-alert-box" style={{ marginTop: 18 }}>
           <ShieldAlert className="reg-alert-icon" size={22} />
           <div>
             <div className="reg-alert-title">National Donor Eligibility Criteria</div>
@@ -196,310 +217,361 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
         </div>
 
         <form onSubmit={submit}>
-          {/* Section 1: Personal Information */}
-          <div className="reg-section" style={{ marginTop: 0 }}>
-            <div className="reg-section-header">
-              <User className="reg-section-icon" size={20} />
-              <div>
-                <h2 className="reg-section-title">Personal Information</h2>
-                <p className="reg-section-desc">Provide your basic details to create your donor account.</p>
-              </div>
-            </div>
+          {/* Section 1: Account Details */}
+          <section className="form-section">
+            <h3>
+              <User size={18} />
+              <span>01 · Account details</span>
+            </h3>
+            <p>Create a secure donor account using your own email address.</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>
-                  Full name <span className="reg-req">*</span>
-                </span>
-                <div className="reg-input-wrap">
-                  <User className="reg-leading-icon" size={18} />
+            <div className="fieldrow">
+              <div className="fgroup">
+                <label htmlFor="reg-name">
+                  Full name <span className="required">*</span>
+                </label>
+                <div className="input-wrap">
+                  <User className="input-icon" size={17} />
                   <input
+                    id="reg-name"
                     required
                     minLength={2}
                     maxLength={120}
-                    className="reg-input"
+                    placeholder="Your full name"
                     value={form.fullName}
                     onChange={(e) => set('fullName', e.target.value)}
-                    placeholder="Enter your full name"
                   />
                 </div>
-              </label>
+              </div>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>
-                  Email <span className="reg-req">*</span>
-                </span>
-                <div className="reg-input-wrap">
-                  <Mail className="reg-leading-icon" size={18} />
+              <div className="fgroup">
+                <label htmlFor="reg-email">
+                  Email address <span className="required">*</span>
+                </label>
+                <div className="input-wrap">
+                  <Mail className="input-icon" size={17} />
                   <input
-                    required
+                    id="reg-email"
                     type="email"
-                    className="reg-input"
+                    required
+                    placeholder="you@example.com"
                     value={form.email}
                     onChange={(e) => set('email', e.target.value)}
-                    placeholder="you@example.com"
                   />
                 </div>
-              </label>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 14 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>
-                  Password <span className="reg-req">*</span>
-                </span>
-                <div className="reg-input-wrap">
-                  <Lock className="reg-leading-icon" size={18} />
-                  <input
-                    required
-                    minLength={10}
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    className="reg-input reg-input-with-trailing"
-                    value={form.password}
-                    onChange={(e) => set('password', e.target.value)}
-                    placeholder="At least 10 characters"
-                  />
-                  <button
-                    type="button"
-                    className="reg-trailing-btn"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    title={showPassword ? 'Hide password' : 'Show password'}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>
-                  Confirm password <span className="reg-req">*</span>
-                </span>
-                <div className="reg-input-wrap">
-                  <Lock className="reg-leading-icon" size={18} />
-                  <input
-                    minLength={10}
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    className="reg-input reg-input-with-trailing"
-                    value={form.confirmPassword}
-                    onChange={(e) => set('confirmPassword', e.target.value)}
-                    placeholder="Repeat your password"
-                  />
-                  <button
-                    type="button"
-                    className="reg-trailing-btn"
-                    onClick={() => setShowConfirmPassword((prev) => !prev)}
-                    title={showConfirmPassword ? 'Hide password' : 'Show password'}
-                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Section 2: Contact & Basic Details */}
-          <div className="reg-section">
-            <div className="reg-section-header">
-              <Phone className="reg-section-icon" size={20} />
-              <div>
-                <h2 className="reg-section-title">Contact & Basic Details</h2>
-                <p className="reg-section-desc">Help us reach you and ensure you meet basic eligibility criteria.</p>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>Contact phone (optional)</span>
-                <div className="reg-input-wrap">
-                  <Phone className="reg-leading-icon" size={18} />
+            <div className="fieldrow" style={{ marginTop: 14 }}>
+              <div className="fgroup">
+                <label htmlFor="reg-password">
+                  Password <span className="required">*</span>
+                </label>
+                <div className="input-wrap">
+                  <Lock className="input-icon" size={17} />
                   <input
+                    id="reg-password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={10}
+                    placeholder="At least 10 characters"
+                    value={form.password}
+                    onChange={(e) => set('password', e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword((s) => !s)}
+                    style={{
+                      position: 'absolute',
+                      right: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      border: 0,
+                      background: 'transparent',
+                      color: '#77889a',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="fgroup">
+                <label htmlFor="reg-confirm">Confirm password</label>
+                <div className="input-wrap">
+                  <Lock className="input-icon" size={17} />
+                  <input
+                    id="reg-confirm"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    minLength={10}
+                    placeholder="Repeat password"
+                    value={form.confirmPassword}
+                    onChange={(e) => set('confirmPassword', e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowConfirmPassword((s) => !s)}
+                    style={{
+                      position: 'absolute',
+                      right: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      border: 0,
+                      background: 'transparent',
+                      color: '#77889a',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="password-strength" aria-hidden="true">
+              <span style={{ width: `${strength.percent}%`, background: strength.color }} />
+            </div>
+            <p className="micro" style={{ margin: '7px 0 0' }}>
+              Use at least 10 characters, ideally a unique passphrase.
+            </p>
+          </section>
+
+          {/* Section 2: Personal & Contact Details */}
+          <section className="form-section">
+            <h3>
+              <Heart size={18} />
+              <span>02 · Personal &amp; contact details</span>
+            </h3>
+            <p>Medical measurements entered online are self-reported and do not certify eligibility.</p>
+
+            <div className="fieldrow">
+              <div className="fgroup">
+                <label htmlFor="reg-phone">Phone number (optional)</label>
+                <div className="input-wrap">
+                  <Phone className="input-icon" size={17} />
+                  <input
+                    id="reg-phone"
                     type="tel"
-                    className="reg-input"
+                    placeholder="07X XXX XXXX"
                     value={form.phone}
                     onChange={(e) => set('phone', e.target.value)}
-                    placeholder="07X XXX XXXX"
                   />
                 </div>
-              </label>
+              </div>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>
-                  Date of birth <span className="reg-req">*</span>
-                </span>
-                <div className="reg-input-wrap">
-                  <Calendar className="reg-leading-icon" size={18} />
+              <div className="fgroup">
+                <label htmlFor="reg-dob">Date of birth (optional)</label>
+                <div className="input-wrap">
+                  <Calendar className="input-icon" size={17} />
                   <input
+                    id="reg-dob"
                     type="date"
-                    className="reg-input"
                     value={form.birthDate}
                     onChange={(e) => set('birthDate', e.target.value)}
-                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
                   />
                 </div>
                 {currentAge !== null && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      marginTop: 2,
-                      color: currentAge >= 18 ? '#16a34a' : '#dc2626',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Calculated age: {currentAge} years {currentAge >= 18 ? '✓ Eligible' : '✗ Under 18'}
+                  <span className="micro" style={{ color: currentAge < 18 ? 'var(--red)' : '#16866c' }}>
+                    Age: {currentAge} years old {currentAge < 18 ? '(Must be 18+ to donate)' : '✓ Eligible age'}
                   </span>
                 )}
-              </label>
+              </div>
+            </div>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>
-                  Weight in kg <span className="reg-req">*</span>
-                </span>
-                <div className="reg-input-wrap">
-                  <Scale className="reg-leading-icon" size={18} />
+            <div className="fieldrow" style={{ marginTop: 14 }}>
+              <div className="fgroup">
+                <label htmlFor="reg-weight">Weight in kg (optional)</label>
+                <div className="input-wrap">
+                  <Scale className="input-icon" size={17} />
                   <input
+                    id="reg-weight"
                     type="number"
                     step="0.5"
-                    min="50"
+                    min="30"
                     max="250"
-                    className="reg-input"
+                    placeholder="e.g. 58"
                     value={form.weightKg}
                     onChange={(e) => set('weightKg', e.target.value)}
-                    placeholder="e.g. 55.0"
                   />
                 </div>
-                <span className="reg-hint">Must be at least 50 kg for blood donation.</span>
-              </label>
-            </div>
-          </div>
+                {form.weightKg && (
+                  <span className="micro" style={{ color: Number(form.weightKg) < 50 ? 'var(--red)' : '#16866c' }}>
+                    {Number(form.weightKg) < 50 ? 'Weight must be at least 50 kg' : '✓ Meets weight threshold'}
+                  </span>
+                )}
+              </div>
 
-          {/* Section 3: Location & Residential Area */}
-          <div className="reg-section">
-            <div className="reg-section-header">
-              <MapPin className="reg-section-icon" size={20} />
-              <div>
-                <h2 className="reg-section-title">Location & Residential Area</h2>
-                <p className="reg-section-desc">Select your area to help us find nearby donation opportunities.</p>
+              <div className="fgroup">
+                <label htmlFor="reg-blood">Blood group (optional)</label>
+                <select
+                  id="reg-blood"
+                  value={form.bloodTypeCode}
+                  onChange={(e) => set('bloodTypeCode', e.target.value)}
+                >
+                  <option value="">Unknown / Not sure</option>
+                  <option value="O-">O−</option>
+                  <option value="O+">O+</option>
+                  <option value="A-">A−</option>
+                  <option value="A+">A+</option>
+                  <option value="B-">B−</option>
+                  <option value="B+">B+</option>
+                  <option value="AB-">AB−</option>
+                  <option value="AB+">AB+</option>
+                </select>
+                <span className="micro">Self-reported until verified by authorized staff.</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 3: Your Location */}
+          <section className="form-section">
+            <h3>
+              <MapPin size={18} />
+              <span>03 · Your location</span>
+            </h3>
+            <p>Use the verified location hierarchy when available; fields load from the existing geography APIs.</p>
+
+            <div className="fieldrow">
+              <div className="fgroup">
+                <label htmlFor="reg-province">Province (verified directory)</label>
+                <select
+                  id="reg-province"
+                  value={form.province}
+                  onChange={(e) => set('province', e.target.value)}
+                >
+                  <option value="Western">Western</option>
+                  <option value="Central">Central</option>
+                  <option value="Southern">Southern</option>
+                  <option value="Northern">Northern</option>
+                  <option value="North Western">North Western</option>
+                  <option value="North Central">North Central</option>
+                  <option value="Eastern">Eastern</option>
+                  <option value="Uva">Uva</option>
+                  <option value="Sabaragamuwa">Sabaragamuwa</option>
+                </select>
+              </div>
+
+              <div className="fgroup">
+                <label htmlFor="reg-district">
+                  District <span className="required">*</span>
+                </label>
+                <select
+                  id="reg-district"
+                  required
+                  value={form.districtCode}
+                  onChange={(e) => set('districtCode', e.target.value)}
+                >
+                  <option value="">Select district</option>
+                  {districtsList.map((d) => (
+                    <option key={d.code} value={d.code}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>
-                  District <span className="reg-req">*</span>
-                </span>
-                <div className="reg-input-wrap">
-                  <Map className="reg-leading-icon" size={18} />
-                  <select
-                    required
-                    aria-label="District"
-                    className="reg-select"
-                    value={form.districtCode}
-                    onChange={(e) => set('districtCode', e.target.value)}
-                  >
-                    <option value="">Select district</option>
-                    {districtsList.map((d) => (
-                      <option key={d.code} value={d.code}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="reg-select-chevron" size={18} />
-                </div>
-              </label>
+            <div className="fieldrow" style={{ marginTop: 14 }}>
+              <div className="fgroup">
+                <label htmlFor="reg-ds">DS Division (when available)</label>
+                <select
+                  id="reg-ds"
+                  value={form.dsDivision}
+                  onChange={(e) => set('dsDivision', e.target.value)}
+                >
+                  <option value="">Select DS division</option>
+                  <option value="COL">Colombo</option>
+                  <option value="MAH">Maharagama</option>
+                  <option value="THI">Thimbirigasyaya</option>
+                </select>
+              </div>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>Town / Neighborhood</span>
-                <div className="reg-input-wrap">
-                  <Home className="reg-leading-icon" size={18} />
-                  <input
-                    className="reg-input"
-                    value={form.town}
-                    onChange={(e) => set('town', e.target.value)}
-                    placeholder="e.g. Maharagama"
-                  />
-                </div>
-              </label>
+              <div className="fgroup">
+                <label htmlFor="reg-gn">GN Division (when available)</label>
+                <select
+                  id="reg-gn"
+                  value={form.gnDivision}
+                  onChange={(e) => set('gnDivision', e.target.value)}
+                >
+                  <option value="">Select GN division</option>
+                  <option value="sample">Sample subdivision</option>
+                </select>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 14 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                <span>Blood group (optional, confirm medically)</span>
-                <div className="reg-input-wrap">
-                  <Droplet className="reg-leading-icon" size={18} />
-                  <select
-                    className="reg-select"
-                    value={form.bloodTypeCode}
-                    onChange={(e) => set('bloodTypeCode', e.target.value)}
-                  >
-                    <option value="">Select blood group</option>
-                    {['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'].map((t) => (
-                      <option value={t} key={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="reg-select-chevron" size={18} />
-                </div>
-              </label>
+            <div className="fgroup" style={{ marginTop: 14 }}>
+              <label htmlFor="reg-town">Town / locality (optional)</label>
+              <input
+                id="reg-town"
+                placeholder="e.g. Maharagama"
+                value={form.town}
+                onChange={(e) => set('town', e.target.value)}
+              />
             </div>
-          </div>
+          </section>
 
           {/* Section 4: Communication Preferences */}
-          <div className="reg-section">
-            <div className="reg-section-header">
-              <Mail className="reg-section-icon" size={20} />
-              <div>
-                <h2 className="reg-section-title">Communication Preferences</h2>
-                <p className="reg-section-desc">
-                  Your location is never publicly exposed. Control your communication preferences below.
-                </p>
-              </div>
-            </div>
+          <section className="form-section">
+            <h3>
+              <Mail size={18} />
+              <span>04 · Communication preferences</span>
+            </h3>
+            <p>You can change your preferences later. All boxes are optional and unchecked by default.</p>
 
-            <div className="reg-pref-box">
-              <label className="reg-pref-item">
-                <input
-                  type="checkbox"
-                  checked={form.availableForContact}
-                  onChange={(e) => set('availableForContact', e.target.checked)}
-                />
-                <span>I agree to be contacted about donation opportunities</span>
-              </label>
+            <label className="check-item">
+              <input
+                type="checkbox"
+                id="reg-contact"
+                checked={form.availableForContact}
+                onChange={(e) => set('availableForContact', e.target.checked)}
+              />
+              <span>I agree to be contacted about donation opportunities</span>
+            </label>
 
-              <label className="reg-pref-item">
-                <input
-                  type="checkbox"
-                  checked={form.campNotificationsOptIn}
-                  onChange={(e) => set('campNotificationsOptIn', e.target.checked)}
-                />
-                <span>Notify me about approved local donation camps</span>
-              </label>
+            <label className="check-item">
+              <input
+                type="checkbox"
+                id="reg-emergency"
+                checked={form.emergencyAppealOptIn}
+                onChange={(e) => set('emergencyAppealOptIn', e.target.checked)}
+              />
+              <span>I consent to emergency donation invitations.</span>
+            </label>
 
-              <label className="reg-pref-item">
-                <input
-                  type="checkbox"
-                  checked={form.smsConsent}
-                  onChange={(e) => set('smsConsent', e.target.checked)}
-                />
-                <span>Receive urgent SMS shortage alerts (requires phone number)</span>
-              </label>
+            <label className="check-item">
+              <input
+                type="checkbox"
+                id="reg-camps"
+                checked={form.campNotificationsOptIn}
+                onChange={(e) => set('campNotificationsOptIn', e.target.checked)}
+              />
+              <span>Notify me about approved local donation camps</span>
+            </label>
 
-              <label className="reg-pref-item">
-                <input
-                  type="checkbox"
-                  checked={form.emailConsent}
-                  onChange={(e) => set('emailConsent', e.target.checked)}
-                />
-                <span>Receive monthly community donor newsletter via email</span>
-              </label>
-            </div>
-          </div>
+            <label className="check-item">
+              <input
+                type="checkbox"
+                id="reg-sms"
+                checked={form.smsConsent}
+                onChange={(e) => set('smsConsent', e.target.checked)}
+              />
+              <span>I agree to receive SMS messages.</span>
+            </label>
 
-          {/* Notification Feedback Messages */}
+            <label className="check-item">
+              <input
+                type="checkbox"
+                id="reg-email-pref"
+                checked={form.emailConsent}
+                onChange={(e) => set('emailConsent', e.target.checked)}
+              />
+              <span>I agree to receive email messages.</span>
+            </label>
+          </section>
+
           {state.error && (
             <div className="notice error" style={{ marginTop: 18 }}>
               {state.error}
@@ -507,8 +579,8 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
           )}
 
           {state.success && (
-            <div className="notice success" style={{ marginTop: 18 }}>
-              <CheckCircle size={18} />
+            <div className="notice success" style={{ marginTop: 18, display: 'flex', gap: 12, alignItems: 'center' }}>
+              <CheckCircle size={20} color="#16866c" />
               <div>
                 <strong>{state.success}</strong>
                 {state.devToken && (
@@ -516,7 +588,7 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
                     Demo Verification Token: <code>{state.devToken}</code>{' '}
                     <button
                       type="button"
-                      className="text-link"
+                      className="link"
                       onClick={() => navigate('verify-email')}
                     >
                       Verify Now →
@@ -527,30 +599,37 @@ export function RegisterPage({ districts: propDistricts = null, onDone = () => {
             </div>
           )}
 
-          {/* Side-by-side action buttons */}
-          <div className="reg-actions">
-            <button type="submit" className="reg-btn-primary" disabled={state.loading}>
+          {/* Equal 50% columns in register-actions */}
+          <div className="register-actions">
+            <button
+              type="submit"
+              className="btn primary"
+              disabled={state.loading}
+            >
               <span>{state.loading ? 'Creating account…' : 'Create donor account'}</span>
-              <ArrowRight size={18} />
+              <ArrowRight size={16} />
             </button>
             <button
               type="button"
-              className="reg-btn-outline"
+              className="btn outline"
               onClick={() => navigate('login')}
             >
               Sign in instead
             </button>
           </div>
-        </form>
 
-        {/* Staff invitation note */}
-        <p className="reg-foot">
-          Are you hospital or blood bank staff? Staff accounts are managed by authorized administrators via{' '}
-          <button type="button" className="reg-staff-link" onClick={() => navigate('accept-invite')}>
-            staff invitation.
-          </button>
-        </p>
-      </section>
+          <p className="micro" style={{ margin: '15px 0 0', textAlign: 'center' }}>
+            Are you hospital or blood bank staff? Staff accounts are managed by authorized administrators via{' '}
+            <button
+              type="button"
+              className="link"
+              onClick={() => navigate('accept-invite')}
+            >
+              staff invitation.
+            </button>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

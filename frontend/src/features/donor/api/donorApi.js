@@ -4,7 +4,11 @@ export const donorApi = {
   getProfile: (token) => api('/donors/me', { method: 'GET' }, token),
   getDashboardSummary: (token) => api('/donors/me/dashboard', { method: 'GET' }, token),
   getNextReview: (token) => api('/donors/me/next-donation-review', { method: 'GET' }, token),
-  getDonations: (token) => api('/donors/me/donations', { method: 'GET' }, token),
+  getDonations: (token, filters = {}, signal) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, value); });
+    return api(`/donors/me/donations?${params}`, { method: 'GET', signal }, token);
+  },
   getVisits: (token) => api('/donors/me/visits', { method: 'GET' }, token),
   updateProfile: (data, token) =>
     api('/donors/me', { method: 'PATCH', body: JSON.stringify(data) }, token),
@@ -13,7 +17,11 @@ export const donorApi = {
   getInvitations: (token) => api('/donors/me/invitations', { method: 'GET' }, token),
   respondInvitation: (id, response, token) =>
     api(`/donors/me/invitations/${id}/respond`, { method: 'POST', body: JSON.stringify({ response }) }, token),
-  getAppointments: (token) => api('/donors/me/appointments', { method: 'GET' }, token),
+  getAppointments: (token, filters = {}, signal) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, value); });
+    return api(`/donors/me/appointments?${params}`, { method: 'GET', signal }, token);
+  },
   bookAppointment: (data, token) =>
     api('/donors/me/appointments', { method: 'POST', body: JSON.stringify(data) }, token),
   cancelAppointment: (id, token) =>

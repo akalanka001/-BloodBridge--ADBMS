@@ -5,6 +5,7 @@ import { ReceiveBloodForm } from '../components/ReceiveBloodForm.jsx';
 
 export function DeliveriesPage({
   requests = [],
+  deliveries = null,
   onReceiveFulfillment = () => {},
   onSelectRequest = () => {},
   loading = false,
@@ -12,8 +13,8 @@ export function DeliveriesPage({
   const [selectedFulfillment, setSelectedFulfillment] = useState(null);
 
   // Collect all fulfillments from all requests
-  const allDeliveries = [];
-  requests.forEach((req) => {
+  const allDeliveries = deliveries ? [...deliveries] : [];
+  (deliveries ? [] : requests).forEach((req) => {
     if (req.fulfillments && Array.isArray(req.fulfillments)) {
       req.fulfillments.forEach((f) => {
         allDeliveries.push({
@@ -88,7 +89,7 @@ export function DeliveriesPage({
                     <RequestStatusBadge status={del.status} />
                   </div>
                   <div style={{ fontSize: 12, color: '#7A8B9E', marginTop: 4 }}>
-                    Linked to Request #{del.request_id.slice(0, 8)} &bull; Dispatched units: {del.units_count || 1}
+                    Linked to Request #{del.request_id.slice(0, 8)} &bull; Dispatched units: {del.units_count ?? 'Unavailable'}
                   </div>
                 </div>
 
@@ -177,7 +178,7 @@ export function DeliveriesPage({
                       {del.blood_bank_name || 'Blood Bank'}
                     </td>
                     <td style={{ padding: '12px 10px', fontSize: 13, fontWeight: 700, color: '#047857' }}>
-                      {del.received_quantity || del.units_count || 1} units
+                      {del.received_quantity ?? del.units_count ?? 'Unavailable'} units
                     </td>
                     <td style={{ padding: '12px 10px', fontSize: 13, color: '#4B5563' }}>
                       {del.receiver_name || 'Authorized Staff'}
@@ -186,7 +187,7 @@ export function DeliveriesPage({
                       {del.received_at ? new Date(del.received_at).toLocaleString() : 'Confirmed'}
                     </td>
                     <td style={{ padding: '12px 10px', fontSize: 12, color: '#4B5563', fontStyle: 'italic' }}>
-                      {del.condition_notes || 'Seals verified'}
+                      {del.condition_notes || 'No condition notes recorded'}
                     </td>
                   </tr>
                 ))}
@@ -202,9 +203,9 @@ export function DeliveriesPage({
           <div style={{ maxWidth: 500, width: '90%' }}>
             <ReceiveBloodForm
               fulfillment={selectedFulfillment}
-              onSubmit={(formData) => {
-                onReceiveFulfillment(formData);
-                setSelectedFulfillment(null);
+              onSubmit={async (formData) => {
+                const result = await onReceiveFulfillment(formData);
+                if (result) setSelectedFulfillment(null);
               }}
               onCancel={() => setSelectedFulfillment(null)}
               loading={loading}

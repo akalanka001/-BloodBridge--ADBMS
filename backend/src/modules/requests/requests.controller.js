@@ -3,6 +3,7 @@ import {
   cancelRequestSchema,
   requestFiltersSchema,
   receiveFulfillmentSchema,
+  matchingSummarySchema,
 } from './requests.validation.js';
 import { requestsService } from './requests.service.js';
 
@@ -10,8 +11,8 @@ export class RequestsController {
   async getRequests(req, res, next) {
     try {
       const filters = requestFiltersSchema.parse(req.query);
-      const data = await requestsService.getHospitalRequests(req.user.id, filters);
-      res.json({ data });
+      const result = await requestsService.getHospitalRequests(req.user.id, filters);
+      res.json(result);
     } catch (err) {
       next(err);
     }
@@ -47,7 +48,8 @@ export class RequestsController {
 
   async getMatchingSummary(req, res, next) {
     try {
-      const data = await requestsService.getMatchingSummary(req.params.id, req.user.id);
+      const { requestItemId } = matchingSummarySchema.parse(req.query);
+      const data = await requestsService.getMatchingSummary(req.params.id, req.user.id, requestItemId);
       res.json({ data });
     } catch (err) {
       next(err);

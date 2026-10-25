@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { adminController } from './admin.controller.js';
 import { authenticate, requireRole } from '../../middleware/auth.js';
+import { oversightFilterSchema, oversightDatasetSchema } from './admin.validation.js';
+import { listOversight } from './oversight.service.js';
 
 const router = Router();
 
@@ -9,6 +11,17 @@ router.use(authenticate, requireRole('ADMIN'));
 
 // 1. Dashboard summary
 router.get('/dashboard', (req, res, next) => adminController.getDashboard(req, res, next));
+
+router.get('/donors', async (req, res, next) => {
+  try { res.json(await listOversight('donors', oversightFilterSchema.parse(req.query))); }
+  catch (error) { next(error); }
+});
+router.get('/operations/:dataset', async (req, res, next) => {
+  try {
+    const dataset = oversightDatasetSchema.parse(req.params.dataset);
+    res.json(await listOversight(dataset, oversightFilterSchema.parse(req.query)));
+  } catch (error) { next(error); }
+});
 
 // 2. User management
 router.get('/users', (req, res, next) => adminController.listUsers(req, res, next));

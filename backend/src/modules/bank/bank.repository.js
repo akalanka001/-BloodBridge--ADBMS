@@ -116,7 +116,7 @@ export class BankRepository {
     };
   }
 
-  async getIncomingRequests(bankId, userId, userRole) {
+  async getIncomingRequests(bankId, userId, userRole, filters = {}) {
     if (userRole !== 'ADMIN') {
       const isStaff = await this.isStaffAtBank(userId, bankId);
       if (!isStaff) {
@@ -124,8 +124,7 @@ export class BankRepository {
       }
     }
 
-    const { rows } = await pool.query(
-      `SELECT br.id, br.hospital_id, h.name AS hospital_name, h.district_id,
+    const baseQuery = `SELECT br.id, br.hospital_id, h.name AS hospital_name, loc.district_code,
               br.urgency, br.status, br.needed_by, br.notes, br.created_at,
               json_agg(
                 json_build_object(
@@ -133,23 +132,28 @@ export class BankRepository {
                   'blood_type_code', ri.blood_type_code,
                   'component_code', ri.component_code,
                   'units_requested', ri.units_requested,
-                  'units_fulfilled', ri.units_fulfilled
+                  'units_fulfilled', (SELECT count(*)::int FROM inventory_reservations ir WHERE ir.request_item_id = ri.id AND ir.status = 'FULFILLED'),
+                  'units_reserved', (SELECT count(*)::int FROM inventory_reservations ir WHERE ir.request_item_id = ri.id AND ir.status = 'ACTIVE')
                 )
               ) AS items
        FROM blood_requests br
        JOIN hospitals h ON h.id = br.hospital_id
+       JOIN locations loc ON loc.id = h.location_id
        JOIN request_items ri ON ri.request_id = br.id
        WHERE br.status IN ('OPEN', 'PARTIALLY_FILLED')
-       GROUP BY br.id, br.hospital_id, h.name, h.district_id, br.urgency, br.status, br.needed_by, br.notes, br.created_at
-       ORDER BY 
-         CASE br.urgency 
-           WHEN 'CRITICAL' THEN 1 
-           WHEN 'URGENT' THEN 2 
-           ELSE 3 
-         END,
-         br.needed_by ASC`,
+       GROUP BY br.id, br.hospital_id, h.name, loc.district_code, br.urgency, br.status, br.needed_by, br.notes, br.created_at`;
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
+    const { rows: countRows } = await pool.query(`SELECT count(*)::int AS total FROM (${baseQuery}) scoped`, []);
+    const total = countRows[0]?.total || 0;
+    const { rows } = await pool.query(
+      `SELECT * FROM (${baseQuery}) scoped
+       ORDER BY CASE urgency WHEN 'CRITICAL' THEN 1 WHEN 'URGENT' THEN 2 ELSE 3 END,
+                needed_by ASC, id ASC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset],
     );
-    return rows;
+    return { data: rows, pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getUpcomingCamps(bankId, userId, userRole) {
@@ -161,14 +165,15 @@ export class BankRepository {
     }
 
     const { rows } = await pool.query(
-      `SELECT dc.id, dc.name, dc.venue_name, dc.starts_at, dc.ends_at,
-              dc.target_units, dc.status, dc.blood_bank_id,
+      `SELECT dc.id, dc.title, loc.town AS venue_name, dc.starts_at, dc.ends_at,
+              dc.capacity, dc.status, dc.blood_bank_id,
               COALESCE(count(d.id)::int, 0) AS actual_collections
        FROM donation_camps dc
+       JOIN locations loc ON loc.id = dc.location_id
        LEFT JOIN donations d ON d.camp_id = dc.id
        WHERE dc.blood_bank_id = $1
-       GROUP BY dc.id, dc.name, dc.venue_name, dc.starts_at, dc.ends_at, dc.target_units, dc.status, dc.blood_bank_id
-       ORDER BY dc.starts_at ASC`,
+       GROUP BY dc.id, dc.title, loc.town, dc.starts_at, dc.ends_at, dc.capacity, dc.status, dc.blood_bank_id
+       ORDER BY dc.starts_at ASC, dc.id ASC`,
       [bankId],
     );
     return rows;
@@ -176,7 +181,7 @@ export class BankRepository {
 
   async listVerifiedBloodBanks(districtCode = null) {
     let query = `
-      SELECT bb.id, bb.name, bb.contact_phone, bb.is_verified,
+      SELECT bb.id, bb.name, bb.location_id, bb.contact_phone, bb.is_verified,
              loc.district_code, dist.name AS district_name,
              loc.ds_code, loc.town, loc.address_line,
              COALESCE(loc.address_line, loc.town, dist.name, 'Sri Lanka') AS address,

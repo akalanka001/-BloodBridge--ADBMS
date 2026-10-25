@@ -57,9 +57,9 @@ export class DonorsService {
     return donorsRepository.listVisitsByDonorId(donor.id);
   }
 
-  async getMyDonations(userId) {
+  async getMyDonations(userId, filters = {}) {
     const donor = await this.getMyProfile(userId);
-    return donorsRepository.listVerifiedDonations(donor.id);
+    return donorsRepository.listVerifiedDonations(donor.id, filters);
   }
 
   async listInvitations(userId) {
@@ -74,9 +74,9 @@ export class DonorsService {
     return updated;
   }
 
-  async listAppointments(userId) {
+  async listAppointments(userId, filters = {}) {
     const donor = await this.getMyProfile(userId);
-    return donorsRepository.listAppointments(donor.id);
+    return donorsRepository.listAppointments(donor.id, filters);
   }
 
   async createAppointment(userId, data) {

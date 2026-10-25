@@ -1,8 +1,8 @@
 import { apiClient } from '../../../lib/api.js';
 
 export const notificationsApi = {
-  getMyNotifications: async () => {
-    const res = await apiClient.get('/notifications/me');
+  getMyNotifications: async (filters = {}) => {
+    const res = await apiClient.get('/notifications/me', { params: filters });
     return res.data;
   },
 

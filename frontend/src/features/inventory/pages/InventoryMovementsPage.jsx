@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { History, Search, RefreshCw, Activity, ArrowRight } from 'lucide-react';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function InventoryMovementsPage({
   movements = [],
   loading = false,
   onRefresh = () => {},
+  pagination,
+  onPageChange,
+  onSearchChange,
 }) {
   const [search, setSearch] = useState('');
+  const onSearchChangeRef = useRef(onSearchChange);
+  useEffect(() => { onSearchChangeRef.current = onSearchChange; }, [onSearchChange]);
+  useEffect(() => {
+    if (!onSearchChangeRef.current) return undefined;
+    const timer = setTimeout(() => onSearchChangeRef.current?.(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const filtered = movements.filter((m) => {
+  const filtered = onSearchChange ? movements : movements.filter((m) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -54,7 +65,6 @@ export function InventoryMovementsPage({
           Refresh Activity
         </button>
       </div>
-
       {/* Search Input */}
       <div
         className="dash-card"
@@ -151,6 +161,7 @@ export function InventoryMovementsPage({
           </table>
         </div>
       </div>
+      {pagination && <Pagination page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} onPageChange={page => onPageChange?.(page, search)} loading={loading} />}
     </div>
   );
 }

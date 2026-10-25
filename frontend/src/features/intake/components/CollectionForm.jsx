@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { HeartPulse, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export function CollectionForm({
-  userBankId = 1,
+  userBankId,
   initialVisitId = '',
   initialDonorId = '',
   onCollect = () => {},

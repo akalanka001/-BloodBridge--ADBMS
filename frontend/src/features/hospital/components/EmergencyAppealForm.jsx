@@ -7,12 +7,14 @@ export function EmergencyAppealForm({
   onSubmit = () => {},
   onCancel = () => {},
   loading = false,
+  initialRequestId = '',
+  initialItemId = '',
 }) {
-  const [selectedRequestId, setSelectedRequestId] = useState(requests[0]?.id || '');
+  const [selectedRequestId, setSelectedRequestId] = useState(initialRequestId || requests[0]?.id || '');
   const selectedRequest = requests.find((r) => r.id === selectedRequestId);
   const items = selectedRequest?.items_json || [];
 
-  const [selectedItemId, setSelectedItemId] = useState(items[0]?.itemId || '');
+  const [selectedItemId, setSelectedItemId] = useState(initialItemId || items[0]?.itemId || '');
   const selectedItem = items.find((i) => i.itemId === selectedItemId) || items[0];
 
   const maxShortage = selectedItem
@@ -21,7 +23,7 @@ export function EmergencyAppealForm({
 
   const [shortageUnits, setShortageUnits] = useState(maxShortage);
   const [reason, setReason] = useState('');
-  const [escalationLevel, setEscalationLevel] = useState('GN_DIVISION');
+  const [escalationLevel, setEscalationLevel] = useState('DISTRICT');
   const [formError, setFormError] = useState('');
 
   const handleSubmit = (e) => {
@@ -33,7 +35,7 @@ export function EmergencyAppealForm({
       return;
     }
     if (!reason.trim() || reason.trim().length < 5) {
-      setFormError('Clinical reason must be at least 5 characters explaining emergency necessity.');
+      setFormError('Enter at least 5 characters explaining the coordination reason. Do not include patient details.');
       return;
     }
 
@@ -96,7 +98,7 @@ export function EmergencyAppealForm({
       >
         <AlertTriangle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
         <span style={{ fontSize: 12, color: '#92400E' }}>
-          Appeals target consented donors via the geographic escalation hierarchy. Existing released bank inventory is always checked before donor dispatch.
+          Appeals record an outreach coordination request. Candidate counts require consent; a recorded appeal does not mean invitations were sent or donors medically cleared.
         </span>
       </div>
 
@@ -206,12 +208,12 @@ export function EmergencyAppealForm({
         {/* Clinical Necessity Reason */}
         <div>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1D3043', marginBottom: 6 }}>
-            Authorized Clinical Indication / Reason
+            Coordination reason (no patient details)
           </label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. Trauma resuscitation; ICU stock depleted after urgent surgery..."
+            placeholder="Describe the component shortage and coordination need"
             rows={3}
             className="dash-input"
             style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, resize: 'vertical' }}

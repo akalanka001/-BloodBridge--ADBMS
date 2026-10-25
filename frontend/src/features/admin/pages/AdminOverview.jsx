@@ -352,7 +352,7 @@ export function AdminOverview({ token, onNavigateTab = () => {} }) {
               type="button"
               className="dash-btn-outline"
               style={{ minHeight: 32, padding: '0 10px', fontSize: 11 }}
-              onClick={() => onNavigateTab('users')}
+              onClick={() => onNavigateTab('audit-activity')}
             >
               Full Log <ArrowRight size={12} />
             </button>

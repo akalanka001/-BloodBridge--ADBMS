@@ -42,7 +42,7 @@ export function DemandAnalysisPage({ token }) {
 
   const totalRequested = demandData.reduce((sum, d) => sum + (Number(d.requested_units) || 0), 0);
   const totalFulfilled = demandData.reduce((sum, d) => sum + (Number(d.fulfilled_units) || 0), 0);
-  const overallFillRate = totalRequested > 0 ? Math.round((totalFulfilled / totalRequested) * 100) : 0;
+  const overallFillRate = totalRequested > 0 ? Math.round((totalFulfilled / totalRequested) * 100) : null;
 
   return (
     <div className="demand-analysis-page">
@@ -95,8 +95,8 @@ export function DemandAnalysisPage({ token }) {
             </div>
             <span className="dash-kpi-label">Overall Fill Rate</span>
           </div>
-          <div className="dash-kpi-value">{overallFillRate}%</div>
-          <div className="dash-kpi-note">National demand coverage</div>
+          <div className="dash-kpi-value">{overallFillRate == null ? 'Not applicable' : `${overallFillRate}%`}</div>
+          <div className="dash-kpi-note">Coverage of selected demand</div>
         </div>
 
         <div className="dash-kpi-card">
@@ -145,7 +145,7 @@ export function DemandAnalysisPage({ token }) {
                       <div style={{ flex: 1, maxWidth: 80, height: 8, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
                         <div style={{ width: `${d.fill_rate_pct || 0}%`, height: '100%', background: '#16A085', borderRadius: 4 }} />
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1D3043' }}>{d.fill_rate_pct || 0}%</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1D3043' }}>{Number(d.requested_units) > 0 ? `${d.fill_rate_pct || 0}%` : 'Not applicable'}</span>
                     </div>
                   </td>
                   <td style={{ padding: '12px 14px', color: '#64748B' }}>{d.percentage_of_total || 0}%</td>
@@ -156,11 +156,11 @@ export function DemandAnalysisPage({ token }) {
                         borderRadius: 12,
                         fontSize: 11,
                         fontWeight: 700,
-                        background: (d.fill_rate_pct || 0) >= 80 ? '#E8F7F1' : (d.fill_rate_pct || 0) >= 50 ? '#FEF3C7' : '#FEE2E2',
-                        color: (d.fill_rate_pct || 0) >= 80 ? '#16A085' : (d.fill_rate_pct || 0) >= 50 ? '#D97706' : '#DC2626',
+                        background: Number(d.requested_units) === 0 ? '#F1F5F9' : (d.fill_rate_pct || 0) >= 80 ? '#E8F7F1' : (d.fill_rate_pct || 0) >= 50 ? '#FEF3C7' : '#FEE2E2',
+                        color: Number(d.requested_units) === 0 ? '#475569' : (d.fill_rate_pct || 0) >= 80 ? '#16A085' : (d.fill_rate_pct || 0) >= 50 ? '#D97706' : '#DC2626',
                       }}
                     >
-                      {(d.fill_rate_pct || 0) >= 80 ? 'Well Supplied' : (d.fill_rate_pct || 0) >= 50 ? 'Moderate' : 'Critical Deficit'}
+                      {Number(d.requested_units) === 0 ? 'No demand' : (d.fill_rate_pct || 0) >= 80 ? 'Well Supplied' : (d.fill_rate_pct || 0) >= 50 ? 'Moderate' : 'Critical Deficit'}
                     </span>
                   </td>
                 </tr>

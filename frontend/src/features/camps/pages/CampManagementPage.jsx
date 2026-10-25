@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { campsApi } from '../api/campsApi.js';
 import { CampStatusBadge } from '../components/CampStatusBadge.jsx';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
+import { campCapacity, campDate } from '../campDisplay.js';
 
 export function CampManagementPage({ onNavigate, user }) {
   const [camps, setCamps] = useState([]);
@@ -29,16 +31,23 @@ export function CampManagementPage({ onNavigate, user }) {
   const [cancellingCampId, setCancellingCampId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => { const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300); return () => clearTimeout(timer); }, [search]);
 
   const fetchCamps = async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {};
+      const params = { limit: pageSize, offset: (page - 1) * pageSize };
       if (activeTab !== 'ALL') params.status = activeTab;
-      if (search) params.search = search;
+      if (debouncedSearch) params.search = debouncedSearch;
       const res = await campsApi.listManagedCamps(params);
       setCamps(res.data || []);
+      setTotal(res.pagination?.total || 0);
+      if (page > Math.max(1, res.pagination?.totalPages || 1)) setPage(Math.max(1, res.pagination?.totalPages || 1));
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to load camps');
     } finally {
@@ -48,7 +57,7 @@ export function CampManagementPage({ onNavigate, user }) {
 
   useEffect(() => {
     fetchCamps();
-  }, [activeTab]);
+  }, [activeTab, debouncedSearch, page, pageSize]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -170,7 +179,8 @@ export function CampManagementPage({ onNavigate, user }) {
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setActiveTab(tab.key); setPage(1); }}
+              aria-pressed={activeTab === tab.key}
               style={{
                 padding: '6px 14px',
                 borderRadius: '6px',
@@ -260,14 +270,10 @@ export function CampManagementPage({ onNavigate, user }) {
                     {camp.town} ({camp.district_name || 'District'})
                   </td>
                   <td style={{ padding: '12px 14px', color: '#475569', fontSize: '0.8rem' }}>
-                    {new Date(camp.starts_at).toLocaleString('en-LK', {
-                      dateStyle: 'short',
-                      timeStyle: 'short',
-                      timeZone: 'Asia/Colombo',
-                    })}
+                    {campDate(camp.starts_at)}
                   </td>
                   <td style={{ padding: '12px 14px', color: '#334155' }}>
-                    <strong>{camp.registered_count || 0}</strong> / {camp.capacity || '—'}
+                    {campCapacity(camp)}
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <CampStatusBadge status={camp.status} />
@@ -354,6 +360,7 @@ export function CampManagementPage({ onNavigate, user }) {
         </table>
       </div>
 
+      <Pagination page={page} pageSize={pageSize} total={total} loading={loading} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} />
       {/* Cancellation Modal */}
       {cancellingCampId && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>

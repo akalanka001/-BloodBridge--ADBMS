@@ -49,15 +49,17 @@ export const bankApi = {
     }, token);
   },
 
-  async getExpiryAlerts(bankId, token) {
+  async getExpiryAlerts(bankId, token, filters = {}) {
     const params = new URLSearchParams();
     if (bankId) params.append('bankId', bankId);
+    Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, value); });
     return api(`/inventory/expiry-alerts?${params.toString()}`, {}, token);
   },
 
-  async getMovements(bankId, token) {
+  async getMovements(bankId, token, filters = {}) {
     const params = new URLSearchParams();
     if (bankId) params.append('bankId', bankId);
+    Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, value); });
     return api(`/inventory/movements?${params.toString()}`, {}, token);
   },
 
@@ -145,9 +147,10 @@ export const bankApi = {
   },
 
   // Incoming Requests for Bank Allocation
-  async getBankRequests(bankId, token) {
+  async getBankRequests(bankId, token, filters = {}) {
     const params = new URLSearchParams();
     if (bankId) params.append('bankId', bankId);
+    Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, value); });
     return api(`/bank/requests?${params.toString()}`, {}, token);
   },
 

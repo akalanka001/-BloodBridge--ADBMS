@@ -1,184 +1,74 @@
-import React, { useState } from 'react';
-import { Search, ShieldCheck, Users, AlertCircle, Info } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { GeoSelector } from '../../../components/forms/GeoSelector.jsx';
+import { hospitalApi } from '../api/hospitalApi.js';
+import { useHospitalState } from '../useHospitalState.js';
 
 const BLOOD_GROUPS = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
-const DISTRICTS = [
-  { code: 'CO', name: 'Colombo' },
-  { code: 'GQ', name: 'Gampaha' },
-  { code: 'KT', name: 'Kalutara' },
-  { code: 'KD', name: 'Kandy' },
-  { code: 'GL', name: 'Galle' },
-  { code: 'MT', name: 'Matara' },
-  { code: 'KU', name: 'Kurunegala' },
-  { code: 'JA', name: 'Jaffna' },
-];
 
-export function FindDonorsPage({ hospitalDistrict = 'CO', onInitiateAppeal = () => {} }) {
-  const [selectedBloodType, setSelectedBloodType] = useState('O-');
-  const [selectedDistrict, setSelectedDistrict] = useState(hospitalDistrict || 'CO');
-  const [hasSearched, setHasSearched] = useState(false);
-
-  // Approximate privacy-safe count based on verified network registries
-  const estimateCount = selectedBloodType === 'O-' ? 8 : selectedBloodType.endsWith('-') ? 14 : 45;
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setHasSearched(true);
+export function FindDonorsPage({ token, hospital, selectedRequest = null, onInitiateAppeal = () => {} }) {
+  const [filters, setFilters] = useHospitalState('candidates', null);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+  const area = filters || {
+    bloodTypeCode: selectedRequest?.items_json?.[0]?.bloodTypeCode || '',
+    provinceCode: hospital?.provinceCode || '', districtCode: hospital?.districtCode || '',
+    dsCode: hospital?.dsCode || '', gnCode: hospital?.gnCode || '', requestItemId: '',
   };
+  const selectedItem = selectedRequest?.items_json?.find(item => item.itemId === area.requestItemId);
+  const bloodTypeCode = selectedItem?.bloodTypeCode || area.bloodTypeCode;
+  const update = changes => setFilters({ ...area, ...changes });
+
+  useEffect(() => {
+    if (!hospital?.hospitalId || !bloodTypeCode) { setResult(null); return; }
+    let active = true;
+    setLoading(true); setError(''); setResult(null);
+    hospitalApi.getDonorCandidates({
+      ...area, bloodTypeCode, hospitalId: hospital.hospitalId,
+      requestId: selectedItem ? selectedRequest.id : '', requestItemId: selectedItem?.itemId || '',
+    }, token).then(response => { if (active) setResult(response.data); })
+      .catch(err => { if (active) setError(err.message || 'Candidate search unavailable'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [token, hospital?.hospitalId, bloodTypeCode, area.provinceCode, area.districtCode, area.dsCode, area.gnCode, selectedItem?.itemId, revision]);
 
   return (
-    <div className="find-donors-page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1D3043', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Search size={24} color="#DB3654" />
-          Donor Network Reach & Mobilization Summary
-        </h2>
-        <span style={{ fontSize: 13, color: '#7A8B9E' }}>
-          Assess potential consented donor population in surrounding administrative divisions
-        </span>
-      </div>
-
-      {/* Privacy Guarantee Notice */}
-      <div
-        style={{
-          background: '#EFF6FF',
-          border: '1px solid #BFDBFE',
-          borderRadius: 14,
-          padding: 16,
-          display: 'flex',
-          gap: 14,
-          alignItems: 'flex-start',
-        }}
-      >
-        <ShieldCheck size={22} color="#2563EB" style={{ flexShrink: 0, marginTop: 2 }} />
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#1E40AF' }}>
-            Data Privacy & Donor Protection Guarantee
-          </div>
-          <div style={{ fontSize: 12, color: '#3B82F6', marginTop: 3 }}>
-            To safeguard privacy under health data regulations, hospital staff can only view aggregated candidate counts. Identifiable donor contact information, phone numbers, NIC numbers, and full medical histories are strictly sequestered from hospital portals.
-          </div>
+    <section className="hospital-find-donors" aria-labelledby="candidate-heading">
+      <h2 id="candidate-heading">Find potential donor candidates</h2>
+      <p>Aggregated outreach counts only. Candidates require staff assessment; these counts do not indicate medical clearance or component compatibility.</p>
+      <div className="dash-card" style={{ padding: 20 }}>
+        {hospital && <p>Assigned institution: <strong>{hospital.hospitalName}</strong>. Initial area: {hospital.districtName || hospital.districtCode}{hospital.dsName ? ` · ${hospital.dsName}` : ''}. You can broaden the search.</p>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: 16 }}>
+          <label>Blood group
+            <select aria-label="Candidate blood group" value={bloodTypeCode || ''} disabled={Boolean(selectedItem)} onChange={event => update({ bloodTypeCode: event.target.value })}>
+              <option value="">Choose a known blood group</option>
+              {BLOOD_GROUPS.map(group => <option key={group}>{group}</option>)}
+            </select>
+          </label>
+          {selectedRequest && <label>Request item
+            <select aria-label="Candidate request item" value={area.requestItemId || ''} onChange={event => update({ requestItemId: event.target.value })}>
+              <option value="">Independent blood group search</option>
+              {(selectedRequest.items_json || []).map(item => <option key={item.itemId} value={item.itemId}>{item.bloodTypeCode} · {item.componentCode} · {item.unitsRequested} units</option>)}
+            </select>
+          </label>}
         </div>
+        <div style={{ marginTop: 16 }}><GeoSelector value={area} onChange={geo => update(geo)} /></div>
+        <button className="btn outline" type="button" onClick={() => setFilters({ bloodTypeCode: '', provinceCode: '', districtCode: '', dsCode: '', gnCode: '', requestItemId: '' })} style={{ marginTop: 16 }}>Clear filters</button>
       </div>
-
-      {/* Search Toolbar */}
-      <div
-        className="dash-card"
-        style={{
-          background: '#FFFFFF',
-          borderRadius: 16,
-          padding: 24,
-          border: '1px solid #E8ECF2',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
-        }}
-      >
-        <form onSubmit={handleSearch} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 16, alignItems: 'flex-end' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1D3043', marginBottom: 6 }}>
-              Target Blood Group
-            </label>
-            <select
-              value={selectedBloodType}
-              onChange={(e) => setSelectedBloodType(e.target.value)}
-              className="dash-input"
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13 }}
-            >
-              {BLOOD_GROUPS.map((bg) => (
-                <option key={bg} value={bg}>{bg}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1D3043', marginBottom: 6 }}>
-              Administrative District
-            </label>
-            <select
-              value={selectedDistrict}
-              onChange={(e) => setSelectedDistrict(e.target.value)}
-              className="dash-input"
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13 }}
-            >
-              {DISTRICTS.map((d) => (
-                <option key={d.code} value={d.code}>{d.name} ({d.code})</option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '11px 22px',
-              borderRadius: 10,
-              border: 'none',
-              background: '#DB3654',
-              color: '#FFFFFF',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            <Search size={16} /> Query Candidate Pool
-          </button>
-        </form>
-
-        {hasSearched && (
-          <div
-            style={{
-              marginTop: 24,
-              paddingTop: 20,
-              borderTop: '1px solid #E8ECF2',
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 20,
-            }}
-          >
-            <div style={{ background: '#F7F9FC', padding: 20, borderRadius: 12, border: '1px solid #E8ECF2' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#7A8B9E', textTransform: 'uppercase' }}>
-                Consented Candidates in {selectedDistrict}
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: '#1D3043', margin: '8px 0 4px 0' }}>
-                {estimateCount}
-              </div>
-              <div style={{ fontSize: 12, color: '#059669', fontWeight: 600 }}>
-                Eligible & available for verified SMS/push alerts
-              </div>
-            </div>
-
-            <div style={{ background: '#FFF0F2', padding: 20, borderRadius: 12, border: '1px solid #FFE2E8', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#881337' }}>
-                  Mobilize via Emergency Appeal
-                </div>
-                <div style={{ fontSize: 12, color: '#6D7183', marginTop: 4 }}>
-                  Need blood units urgently? Initiate an authorized emergency appeal to trigger automated outreach.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onInitiateAppeal()}
-                style={{
-                  alignSelf: 'flex-start',
-                  marginTop: 12,
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  border: 'none',
-                  background: '#DB3654',
-                  color: '#FFFFFF',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Create Emergency Appeal &rarr;
-              </button>
-            </div>
-          </div>
-        )}
+      <div style={{ marginTop: 20 }} aria-live="polite" aria-busy={loading}>
+        {loading ? <p>Checking potential candidates…</p> : error ? <div role="alert" className="notice error">{error}<button type="button" onClick={() => setRevision(value => value + 1)}>Retry search</button></div> : !bloodTypeCode ? <p>Choose a blood group to search automatically.</p> : result ? <div className="dash-card" style={{ padding: 20 }}>
+          <h3>Potential donor candidates</h3>
+          <p style={{ fontSize: 32, fontWeight: 700, color: 'var(--navy)' }}>{result.candidateCount}</p>
+          <p>Applied area: {[result.appliedFilters.provinceCode, result.appliedFilters.districtCode, result.appliedFilters.dsCode, result.appliedFilters.gnCode].filter(Boolean).join(' → ') || 'All seeded areas'} · Blood group {result.appliedFilters.bloodTypeCode}</p>
+          {result.requestItem && <p>Selected item: {result.requestItem.componentCode} · {result.requestItem.unitsRequested} requested units.</p>}
+          <p>{result.definition}</p>
+          <p>Queried {new Date(result.queriedAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}</p>
+          {result.candidateCount === 0 && <p>Broaden the area or review the selected blood group. Outreach permissions remain required.</p>}
+          <button type="button" className="btn primary" onClick={() => onInitiateAppeal(selectedRequest, selectedItem)}>Open request appeals</button>
+          <p>No outreach is sent by this search. Appeal history shows persisted outcomes.</p>
+        </div> : null}
       </div>
-    </div>
+    </section>
   );
 }

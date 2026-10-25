@@ -10,11 +10,11 @@ export class BankService {
     if (user.role !== 'BANK_STAFF') {
       throw new ForbiddenError('Blood bank staff access required');
     }
-    const userBankId = await bankRepository.getUserBankId(user.id);
+    const userBankId = bankId ? Number(bankId) : await bankRepository.getUserBankId(user.id);
     if (!userBankId) {
       throw new ForbiddenError('No active blood bank membership found');
     }
-    if (bankId && Number(bankId) !== Number(userBankId)) {
+    if (!(await bankRepository.isStaffAtBank(user.id, userBankId))) {
       throw new ForbiddenError('Staff member not authorized for this blood bank');
     }
     return userBankId;
@@ -28,12 +28,12 @@ export class BankService {
     return bankRepository.getDashboardData(targetBankId, user.id, user.role, componentCode);
   }
 
-  async getIncomingRequests(bankId, user) {
+  async getIncomingRequests(bankId, user, filters = {}) {
     const targetBankId = await this.assertBankAccess(bankId, user);
     if (!targetBankId) {
       throw new BadRequestError('No blood bank associated with user or specified in request');
     }
-    return bankRepository.getIncomingRequests(targetBankId, user.id, user.role);
+    return bankRepository.getIncomingRequests(targetBankId, user.id, user.role, filters);
   }
 
   async getUpcomingCamps(bankId, user) {

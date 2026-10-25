@@ -1,57 +1,30 @@
 import React from 'react';
-import { CalendarDays, MapPin, Hospital, Search, ArrowRight } from 'lucide-react';
-import { Badge, Heading } from '../../components/ui/Typography.jsx';
-import { navigate } from '../../lib/navigation.js';
+import { Search } from 'lucide-react';
+import { CampCard, CampCardSkeleton } from './CampCard.jsx';
 
-export function CampCard({ camp }) {
-  const date = new Date(camp.starts_at);
+export { CampCard, CampCardSkeleton };
+
+export function CampsPage({ camps = [], district, setDistrict, districts = [], loading, error }) {
   return (
-    <article className="surface-card camp-card">
-      <div className="camp-art">
-        <CalendarDays size={43} />
+    <div className="container view" style={{ paddingTop: 24, paddingBottom: 48 }}>
+      <div className="section-heading" style={{ marginBottom: 24 }}>
+        <div>
+          <div className="eyebrow">Discover donation opportunities</div>
+          <h1 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: '8px 0', color: '#1D3043', fontWeight: 800 }}>
+            Donation camps
+          </h1>
+          <p style={{ maxWidth: 680, margin: 0, color: '#64748B', fontSize: '15px', lineHeight: 1.6 }}>
+            Browse verified upcoming blood donation drives by Sri Lankan district. Your area selection filters real records in PostgreSQL.
+          </p>
+        </div>
       </div>
-      <Badge className="success">Verified blood-bank event</Badge>
-      <h3>{camp.title}</h3>
-      <p>
-        <MapPin size={15} />
-        {camp.town} · {camp.district_name}
-      </p>
-      <p>
-        <CalendarDays size={15} />
-        {date.toLocaleString('en-LK', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-          timeZone: 'Asia/Colombo',
-        })}
-      </p>
-      <p>
-        <Hospital size={15} />
-        {camp.coordinating_blood_bank}
-      </p>
-      {(camp.target_donors || camp.capacity) ? (
-        <p className="camp-capacity-stat" style={{ fontSize: '0.85rem', color: '#475569', margin: '4px 0' }}>
-          Registered: <strong>{camp.registered_donors ?? camp.registered_count ?? 0}</strong> / Capacity: <strong>{camp.target_donors || camp.capacity}</strong>
-        </p>
-      ) : null}
-      <button className="text-link" onClick={() => navigate('login')}>
-        Sign in to register <ArrowRight size={16} />
-      </button>
-    </article>
-  );
-}
 
-export function CampsPage({ camps, district, setDistrict, districts, loading, error }) {
-  return (
-    <div className="view-section">
-      <Heading
-        tag="Find a blood donation opportunity"
-        title="Donation camps"
-        description="Browse verified upcoming camps by Sri Lankan district. Your area selection filters real records in PostgreSQL."
-      />
-      <div className="surface-card filter-card">
-        <label htmlFor="district">Filter by district</label>
-        <div className="filter-row">
-          <Search size={20} />
+      <div className="card filter-card" style={{ marginBottom: 28, maxWidth: 640 }}>
+        <label htmlFor="district" style={{ fontSize: 13, fontWeight: 700, color: '#1D3043' }}>
+          Filter by district
+        </label>
+        <div className="filter-row" style={{ marginTop: 8 }}>
+          <Search size={18} color="#64748B" />
           <select id="district" value={district} onChange={(e) => setDistrict(e.target.value)}>
             <option value="">All available districts</option>
             {districts.map((d) => (
@@ -62,20 +35,31 @@ export function CampsPage({ camps, district, setDistrict, districts, loading, er
           </select>
         </div>
       </div>
+
       {error && <div className="notice error">{error}</div>}
+
       {loading ? (
-        <p className="loading">Loading approved camps…</p>
-      ) : camps.length ? (
-        <div className="three-grid">
-          {camps.map((c) => (
-            <CampCard key={c.camp_id} camp={c} />
+        <div className="bb-camp-grid">
+          {[0, 1, 2, 3, 4, 5].map((idx) => (
+            <CampCardSkeleton key={idx} />
           ))}
         </div>
+      ) : camps.length === 0 ? (
+        <div className="empty-card" style={{ marginTop: 12 }}>
+          <strong style={{ color: '#1D3043', fontSize: '17px' }}>No approved camps found</strong>
+          <p style={{ color: '#64748B', marginTop: 6 }}>
+            No scheduled blood donation drives currently match the selected district filter. Try selecting "All available districts".
+          </p>
+        </div>
       ) : (
-        <div className="empty-card">
-          <CalendarDays size={32} />
-          <h3>No upcoming camps found</h3>
-          <p>Try another district, or check back once a blood bank approves a camp.</p>
+        <div className="bb-camp-grid">
+          {camps.map((camp, idx) => (
+            <CampCard
+              key={camp.camp_id || camp.id}
+              camp={camp}
+              index={idx}
+            />
+          ))}
         </div>
       )}
     </div>

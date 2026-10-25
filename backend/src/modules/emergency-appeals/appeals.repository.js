@@ -1,5 +1,6 @@
 import { pool, inTransaction } from '../../db.js';
 import { BadRequestError, NotFoundError, ForbiddenError } from '../../infrastructure/errors.js';
+import { countPotentialCandidates } from '../hospital/candidates.repository.js';
 
 const STAGE_ORDER = {
   GN_DIVISION: 1,
@@ -17,103 +18,40 @@ const NEXT_STAGE = {
 };
 
 export class AppealsRepository {
-  async isStaffAtHospital(userId, hospitalId) {
-    const { rows } = await pool.query(
+  async isStaffAtHospital(userId, hospitalId, db = pool) {
+    const { rows } = await db.query(
       'SELECT 1 FROM staff_memberships WHERE user_id = $1 AND hospital_id = $2 AND is_active = true',
       [userId, hospitalId],
     );
     return rows.length > 0;
   }
 
-  async countCandidates(bloodTypeCode, geoContext, stageName, appealId = null) {
+  async countCandidates(bloodTypeCode, geoContext, stageName, appealId = null, db = pool) {
     const geo = typeof geoContext === 'string' ? { districtCode: geoContext } : (geoContext || {});
-    const districtCode = geo.districtCode;
-    const dsCode = geo.dsCode;
-    const gnCode = geo.gnCode;
-
-    // Strict clinical outreach criteria:
-    // 1. Exact target blood group (avoid blanket O- outreach fallback across components)
-    // 2. Active contact availability & explicit emergency outreach consent
-    // 3. Exclude active deferrals (permanent or active temporary)
-    // 4. Exclude recent donations within 120-day interval
-    // 5. Exclude donors with active pending invitations
-    let query = `
-      SELECT COUNT(DISTINCT d.id)::int AS count
-      FROM donors d
-      JOIN donor_consents dc ON dc.donor_id = d.id
-      WHERE d.blood_type_code = $1
-        AND d.available_for_contact = TRUE
-        AND dc.contact_allowed = TRUE
-        AND dc.emergency_appeal_opt_in = TRUE
-        AND NOT EXISTS (
-          SELECT 1 FROM donor_assessments da
-          WHERE da.donor_id = d.id
-            AND (
-              da.status = 'PERMANENT_DEFERRAL'
-              OR (da.status = 'TEMPORARY_DEFERRAL' AND da.deferral_until >= CURRENT_DATE)
-            )
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM donations dn
-          WHERE dn.donor_id = d.id
-            AND dn.process_status <> 'REJECTED'
-            AND dn.collected_at >= (CURRENT_DATE - INTERVAL '120 days')
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM donor_invitations di
-          WHERE di.donor_id = d.id
-            AND di.status = 'PENDING'
-            AND (di.expires_at IS NULL OR di.expires_at > now())
-        )
-    `;
-    const params = [bloodTypeCode];
-    let paramIdx = 2;
-
-    if (stageName === 'GN_DIVISION') {
-      if (gnCode) {
-        query += ` AND d.gn_code = $${paramIdx++}`;
-        params.push(gnCode);
-      } else if (dsCode) {
-        query += ` AND d.ds_code = $${paramIdx++} AND d.gn_code IS NOT NULL`;
-        params.push(dsCode);
+    const filters = { bloodTypeCode };
+    if (stageName === 'PROVINCE') {
+      if (!geo.districtCode) return 0;
+      const { rows } = await db.query('SELECT province_code FROM districts WHERE code = $1', [geo.districtCode]);
+      if (!rows[0]) return 0;
+      filters.provinceCode = rows[0].province_code;
+    } else if (stageName !== 'NATIONAL') {
+      if (!geo.districtCode) return 0;
+      filters.districtCode = geo.districtCode;
+      if (['GN_DIVISION', 'DS_DIVISION'].includes(stageName)) {
+        if (!geo.dsCode) return 0;
+        filters.dsCode = geo.dsCode;
       }
-      if (districtCode) {
-        query += ` AND d.district_code = $${paramIdx++}`;
-        params.push(districtCode);
-      }
-    } else if (stageName === 'DS_DIVISION') {
-      if (dsCode) {
-        query += ` AND d.ds_code = $${paramIdx++}`;
-        params.push(dsCode);
-      }
-      if (districtCode) {
-        query += ` AND d.district_code = $${paramIdx++}`;
-        params.push(districtCode);
-      }
-    } else if (stageName === 'DISTRICT') {
-      if (districtCode) {
-        query += ` AND d.district_code = $${paramIdx++}`;
-        params.push(districtCode);
-      }
-    } else if (stageName === 'PROVINCE') {
-      if (districtCode) {
-        query += ` AND d.district_code IN (
-          SELECT d2.code FROM districts d2
-          WHERE d2.province_code = (SELECT d1.province_code FROM districts d1 WHERE d1.code = $${paramIdx++})
-        )`;
-        params.push(districtCode);
+      if (stageName === 'GN_DIVISION') {
+        if (!geo.gnCode) return 0;
+        filters.gnCode = geo.gnCode;
       }
     }
-    // NATIONAL scope has no geographical restriction
-
-    const { rows } = await pool.query(query, params);
-    return rows[0]?.count || 0;
+    return countPotentialCandidates(filters, db);
   }
-
   async createAppeal(data, userId) {
     return inTransaction(async (client) => {
       // 1. Verify hospital staff membership
-      const isStaff = await this.isStaffAtHospital(userId, data.hospitalId);
+      const isStaff = await this.isStaffAtHospital(userId, data.hospitalId, client);
       if (!isStaff) {
         throw new ForbiddenError('Staff member not authorized for this hospital');
       }
@@ -151,6 +89,7 @@ export class AppealsRepository {
         item.blood_type_code,
         geoContext,
         data.escalationLevel,
+        null, client,
       );
 
       // 4. Insert emergency appeal
@@ -188,7 +127,7 @@ export class AppealsRepository {
           data.escalationLevel,
           item.district_code || 'LK',
           candidateCount,
-          Math.min(candidateCount, data.shortageUnits * 4), // safe outreach ratio
+          0, // Only persisted invitations may be reported as sent
         ],
       );
 
@@ -252,12 +191,13 @@ export class AppealsRepository {
     return appeal;
   }
 
-  async listAppealsByHospital(hospitalId, userId) {
+  async listAppealsByHospital(hospitalId, userId, { limit = 10, offset = 0 } = {}) {
     const isStaff = await this.isStaffAtHospital(userId, hospitalId);
     if (!isStaff) {
       throw new ForbiddenError('Staff member not authorized for this hospital');
     }
 
+    const total = await pool.query('SELECT count(*)::int AS total FROM emergency_appeals WHERE hospital_id = $1', [hospitalId]);
     const { rows } = await pool.query(
       `SELECT ea.*,
               COALESCE(
@@ -267,11 +207,11 @@ export class AppealsRepository {
               ) AS steps
        FROM emergency_appeals ea
        WHERE ea.hospital_id = $1
-       ORDER BY ea.created_at DESC`,
-      [hospitalId],
+       ORDER BY ea.created_at DESC, ea.id DESC LIMIT $2 OFFSET $3`,
+      [hospitalId, limit, offset],
     );
 
-    return rows;
+    return { data: rows, pagination: { total: Number(total.rows[0]?.total ?? 0), limit, offset } };
   }
 
   async escalateAppeal(appealId, userId, requestedTargetStage) {
@@ -292,7 +232,7 @@ export class AppealsRepository {
       }
 
       const appeal = rows[0];
-      const isStaff = await this.isStaffAtHospital(userId, appeal.hospital_id);
+      const isStaff = await this.isStaffAtHospital(userId, appeal.hospital_id, client);
       if (!isStaff) {
         throw new ForbiddenError('Staff member not authorized to escalate this appeal');
       }
@@ -324,7 +264,7 @@ export class AppealsRepository {
         appeal.target_blood_type,
         geoContext,
         nextStage,
-        appeal.id,
+        appeal.id, client,
       );
 
       // Insert step
@@ -339,7 +279,7 @@ export class AppealsRepository {
           nextStage,
           appeal.district_code || 'LK',
           candidateCount,
-          Math.min(candidateCount, appeal.shortage_units * 6),
+          0, // Escalation records a query; no invitation delivery has happened here
         ],
       );
 

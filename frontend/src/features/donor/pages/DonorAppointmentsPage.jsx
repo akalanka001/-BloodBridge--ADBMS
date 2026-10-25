@@ -12,9 +12,13 @@ import {
   Info,
 } from 'lucide-react';
 import { donorApi } from '../api/donorApi.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function DonorAppointmentsPage({ token, onBookSuccess }) {
   const [appointments, setAppointments] = useState([]);
+  const [appointmentTotal, setAppointmentTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [bloodBanks, setBloodBanks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -29,14 +33,15 @@ export function DonorAppointmentsPage({ token, onBookSuccess }) {
   const [donationType, setDonationType] = useState('WHOLE_BLOOD');
   const [notes, setNotes] = useState('');
 
-  const loadData = async () => {
+  const loadData = async (pageToLoad = page) => {
     setLoading(true);
     try {
       const [apptRes, bbRes] = await Promise.all([
-        donorApi.getAppointments(token),
+        donorApi.getAppointments(token, { limit: pageSize, offset: (pageToLoad - 1) * pageSize }),
         donorApi.getBloodBanks(token).catch(() => ({ data: [] })),
       ]);
       setAppointments(apptRes.data || []);
+      setAppointmentTotal(apptRes.pagination?.total || 0);
       setBloodBanks(bbRes.data || []);
       if (bbRes.data && bbRes.data.length > 0 && !bloodBankId) {
         setBloodBankId(bbRes.data[0].id.toString());
@@ -48,9 +53,7 @@ export function DonorAppointmentsPage({ token, onBookSuccess }) {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [token]);
+  useEffect(() => { loadData(page); }, [token, page]);
 
   const handleBook = async (e) => {
     e.preventDefault();
@@ -75,7 +78,8 @@ export function DonorAppointmentsPage({ token, onBookSuccess }) {
       setSuccess('Appointment successfully scheduled!');
       setShowModal(false);
       setNotes('');
-      loadData();
+      setPage(1);
+      loadData(1);
       if (onBookSuccess) onBookSuccess();
     } catch (err) {
       setError(err.message);
@@ -241,6 +245,8 @@ export function DonorAppointmentsPage({ token, onBookSuccess }) {
           })}
         </div>
       )}
+
+      <Pagination page={page} pageSize={pageSize} total={appointmentTotal} onPageChange={setPage} loading={loading} />
 
       {/* Booking Modal */}
       {showModal && (

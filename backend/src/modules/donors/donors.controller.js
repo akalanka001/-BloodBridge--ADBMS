@@ -4,6 +4,7 @@ import {
   createClaimSchema,
   respondInvitationSchema,
   bookAppointmentSchema,
+  donorListQuerySchema,
 } from './donors.validation.js';
 import { donorsService } from './donors.service.js';
 
@@ -85,8 +86,9 @@ export class DonorsController {
 
   async getMyDonations(req, res, next) {
     try {
-      const data = await donorsService.getMyDonations(req.user.id);
-      res.json({ data });
+      const filters = donorListQuerySchema.parse(req.query);
+      const result = await donorsService.getMyDonations(req.user.id, filters);
+      res.json({ data: result.data, pagination: result.pagination });
     } catch (err) {
       next(err);
     }
@@ -113,8 +115,9 @@ export class DonorsController {
 
   async listAppointments(req, res, next) {
     try {
-      const data = await donorsService.listAppointments(req.user.id);
-      res.json({ data });
+      const filters = donorListQuerySchema.parse(req.query);
+      const result = await donorsService.listAppointments(req.user.id, filters);
+      res.json({ data: result.data, pagination: result.pagination });
     } catch (err) {
       next(err);
     }

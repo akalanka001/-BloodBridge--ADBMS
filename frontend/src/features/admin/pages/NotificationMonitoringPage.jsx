@@ -12,9 +12,13 @@ import {
   X,
 } from 'lucide-react';
 import { getNotificationDeliveries } from '../api/adminApi.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function NotificationMonitoringPage({ token }) {
   const [deliveries, setDeliveries] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -25,12 +29,13 @@ export function NotificationMonitoringPage({ token }) {
   // Selected delivery for error inspection
   const [selectedDelivery, setSelectedDelivery] = useState(null);
 
-  const loadDeliveries = async () => {
+  const loadDeliveries = async (pageToLoad = page) => {
     setLoading(true);
     setError('');
     try {
-      const res = await getNotificationDeliveries(token);
+      const res = await getNotificationDeliveries(token, { limit: pageSize, offset: (pageToLoad - 1) * pageSize, channel: channelFilter, status: statusFilter });
       setDeliveries(res.data || []);
+      setTotal(res.pagination?.total || res.count || 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -39,14 +44,10 @@ export function NotificationMonitoringPage({ token }) {
   };
 
   useEffect(() => {
-    loadDeliveries();
-  }, [token]);
+    loadDeliveries(page);
+  }, [token, page, channelFilter, statusFilter]);
 
-  const filteredDeliveries = deliveries.filter((d) => {
-    if (channelFilter && d.channel !== channelFilter) return false;
-    if (statusFilter && d.status !== statusFilter) return false;
-    return true;
-  });
+  const filteredDeliveries = deliveries;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -86,7 +87,7 @@ export function NotificationMonitoringPage({ token }) {
           type="button"
           className="dash-btn-outline"
           style={{ minHeight: 40, padding: '0 16px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={loadDeliveries}
+            onClick={() => loadDeliveries()}
           disabled={loading}
         >
           <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh Deliveries
@@ -128,7 +129,7 @@ export function NotificationMonitoringPage({ token }) {
           <select
             id="filter-delivery-channel"
             value={channelFilter}
-            onChange={(e) => setChannelFilter(e.target.value)}
+            onChange={(e) => { setChannelFilter(e.target.value); setPage(1); }}
             className="reg-input"
             style={{ width: 160, height: 38, fontSize: 13 }}
           >
@@ -141,12 +142,13 @@ export function NotificationMonitoringPage({ token }) {
           <select
             id="filter-delivery-status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="reg-input"
             style={{ width: 160, height: 38, fontSize: 13 }}
           >
             <option value="">All States</option>
             <option value="DELIVERED">DELIVERED</option>
+            <option value="PUBLISHED">PUBLISHED</option>
             <option value="PENDING">PENDING</option>
             <option value="PROCESSING">PROCESSING</option>
             <option value="FAILED">FAILED</option>
@@ -159,6 +161,7 @@ export function NotificationMonitoringPage({ token }) {
             onClick={() => {
               setChannelFilter('');
               setStatusFilter('');
+              setPage(1);
             }}
           >
             Reset Filters
@@ -258,6 +261,7 @@ export function NotificationMonitoringPage({ token }) {
           </div>
         )}
       </div>
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} loading={loading} />
 
       {/* Safe Error Details Modal */}
       {selectedDelivery && (

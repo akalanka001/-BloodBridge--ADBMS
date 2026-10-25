@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navbar, Footer } from '../components/navigation/Navbar.jsx';
 import { Home } from '../features/public/Home.jsx';
+import { AboutPage } from '../features/public/AboutPage.jsx';
 import { CampsPage } from '../features/camps/CampsPage.jsx';
 import {
   RegisterPage,
@@ -158,6 +159,7 @@ export default function App() {
         )}
 
         {page === 'home' && <Home camps={camps} />}
+        {page === 'about' && <AboutPage />}
 
         {page === 'camps' && (
           <CampsPage

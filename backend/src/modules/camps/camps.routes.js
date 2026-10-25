@@ -5,7 +5,7 @@ import { authenticate, requireRole } from '../../middleware/auth.js';
 const router = Router();
 
 // 1. Organizers & Donor personal registrations (place before :id to prevent param collision)
-router.get('/organizers', (req, res, next) => campsController.listOrganizers(req, res, next));
+router.get('/organizers', authenticate, requireRole('BANK_STAFF', 'ADMIN'), (req, res, next) => campsController.listOrganizers(req, res, next));
 router.get('/registrations/me', authenticate, requireRole('DONOR'), (req, res, next) =>
   campsController.getMyRegistrations(req, res, next)
 );
@@ -14,6 +14,15 @@ router.get('/registrations/me', authenticate, requireRole('DONOR'), (req, res, n
 router.get('/', (req, res, next) => campsController.listCamps(req, res, next));
 router.get('/managed', authenticate, requireRole('BANK_STAFF', 'ADMIN'), (req, res, next) =>
   campsController.listManagedCamps(req, res, next)
+);
+router.get('/discovery', authenticate, requireRole('DONOR'), (req, res, next) =>
+  campsController.discoverCamps(req, res, next)
+);
+router.get('/discovery/:id', authenticate, requireRole('DONOR'), (req, res, next) =>
+  campsController.getDonorCamp(req, res, next)
+);
+router.get('/managed/:id', authenticate, requireRole('BANK_STAFF', 'ADMIN'), (req, res, next) =>
+  campsController.getManagedCamp(req, res, next)
 );
 
 // 3. Camp Details

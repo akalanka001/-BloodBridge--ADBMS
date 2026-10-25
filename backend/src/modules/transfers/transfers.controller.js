@@ -1,4 +1,4 @@
-import { createTransferSchema, receiveTransferSchema } from './transfers.validation.js';
+import { createTransferSchema, receiveTransferSchema, transfersQuerySchema } from './transfers.validation.js';
 import { transfersService } from './transfers.service.js';
 
 export class TransfersController {
@@ -14,9 +14,9 @@ export class TransfersController {
 
   async getTransfers(req, res, next) {
     try {
-      const bankId = req.query.bankId ? Number(req.query.bankId) : null;
-      const data = await transfersService.getTransfers(bankId, req.user);
-      res.json({ data, count: data.length });
+      const filters = transfersQuerySchema.parse(req.query);
+      const result = await transfersService.getTransfers(filters.bankId || null, req.user, filters);
+      res.json({ data: result.data, count: result.pagination.total, pagination: result.pagination });
     } catch (err) {
       next(err);
     }

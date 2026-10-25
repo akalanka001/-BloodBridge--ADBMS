@@ -9,7 +9,14 @@ import { CreateRequestPage } from './pages/CreateRequestPage.jsx';
 describe('Member 3 — Hospital Dashboard & Emergency Coordination (M3 Frontend)', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    global.fetch = vi.fn();
+    window.history.replaceState(null, '', '#hospital');
+    global.fetch = vi.fn((url) => Promise.resolve({ ok: true, json: () => Promise.resolve({
+      data: String(url).includes('/hospital/context') ? { hospitalId: 1, hospitalName: 'Synthetic hospital', districtCode: 'CO', provinceCode: 'WP' }
+        : String(url).includes('/hospital/dashboard') ? { kpis: {}, recentRequests: [], urgentShortages: [], matchingOverview: null }
+        : String(url).includes('/hospital/reports') ? { total_requests: 0, fulfilled_requests: 0 }
+        : [],
+      pagination: { total: 0, limit: 10, offset: 0 },
+    }) }));
   });
 
   afterEach(() => {
@@ -99,7 +106,7 @@ describe('Member 3 — Hospital Dashboard & Emergency Coordination (M3 Frontend)
     const urgencySelect = screen.getByRole('combobox', { name: /Urgency Level/i });
     fireEvent.change(urgencySelect, { target: { value: 'CRITICAL' } });
 
-    const notesTextarea = screen.getByPlaceholderText(/surgical intervention/i);
+    const notesTextarea = screen.getByPlaceholderText(/delivery coordination/i);
     fireEvent.change(notesTextarea, { target: { value: 'Emergency surgical trauma' } });
 
     // Submit form
@@ -124,59 +131,15 @@ describe('Member 3 — Hospital Dashboard & Emergency Coordination (M3 Frontend)
   });
 
   it('M3-UI-04: HospitalPortal loads data and navigates between Overview, Requests, and Appeals', async () => {
-    // Mock getDashboard, getRequests, getAvailableStock, getEmergencyAppeals
-    global.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            data: {
-              kpis: { active_requests: 3, critical_priority: 1, fulfilled_this_month: 8 },
-              recentRequests: [
-                {
-                  id: 'req-alpha-1234',
-                  urgency: 'CRITICAL',
-                  status: 'OPEN',
-                  total_requested_units: 3,
-                  needed_by: new Date(Date.now() + 86400000).toISOString(),
-                  items_json: [{ bloodTypeCode: 'O-', componentCode: 'RBC', unitsRequested: 3 }],
-                },
-              ],
-              urgentShortages: [],
-              matchingOverview: {
-                matchingProgress: 60,
-                inventoryFacilitiesCount: 2,
-                potentialDonorsCount: 4,
-              },
-            },
-          }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            data: [
-              {
-                id: 'req-alpha-1234',
-                hospital_name: 'Colombo General Hospital',
-                urgency: 'CRITICAL',
-                status: 'OPEN',
-                total_requested_units: 3,
-                needed_by: new Date(Date.now() + 86400000).toISOString(),
-                items_json: [{ bloodTypeCode: 'O-', componentCode: 'RBC', unitsRequested: 3 }],
-              },
-            ],
-          }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ data: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ data: [] }),
-      });
-
+    const defaultFetch = global.fetch;
+    global.fetch = vi.fn((url, options) => {
+      if (String(url).includes('/hospital/dashboard')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: {
+        kpis: { active_requests: 3, critical_priority: 1, fulfilled_this_month: 8 },
+        recentRequests: [{ id: 'req-alpha-1234', urgency: 'CRITICAL', status: 'OPEN', total_requested_units: 3, needed_by: new Date(Date.now() + 86400000).toISOString(), items_json: [{ bloodTypeCode: 'O-', componentCode: 'RBC', unitsRequested: 3 }] }],
+        urgentShortages: [], matchingOverview: { matchingProgress: 60, inventoryFacilitiesCount: 2, potentialDonorsCount: 4 },
+      } }) });
+      return defaultFetch(url, options);
+    });
     render(<HospitalPortal token="test-hospital-token" userHospitalId={1} activeTab="overview" />);
 
     // Wait for initial load
@@ -188,7 +151,7 @@ describe('Member 3 — Hospital Dashboard & Emergency Coordination (M3 Frontend)
     expect(screen.getByText(/#req-alph/i)).toBeDefined();
   });
 
-  it('M3-UI-05: renders HospitalNotificationsPage with privacy assurance and filters without donor personal data', () => {
+  it('M3-UI-05: renders HospitalNotificationsPage with privacy assurance and filters without donor personal data', async () => {
     render(
       <HospitalPortal
         token="test-token"
@@ -197,13 +160,13 @@ describe('Member 3 — Hospital Dashboard & Emergency Coordination (M3 Frontend)
       />
     );
 
-    expect(screen.getByText(/Hospital Notifications & Fulfillment Alerts/i)).toBeDefined();
+    await waitFor(() => expect(screen.getByText(/Hospital Notifications & Fulfillment Alerts/i)).toBeDefined());
     expect(screen.getByText(/Privacy Assured/i)).toBeDefined();
     expect(screen.getByText(/All Alerts/i)).toBeDefined();
     expect(screen.getByText(/Urgent & Critical/i)).toBeDefined();
   });
 
-  it('M3-UI-06: renders DeliveriesPage with delivery tracking and receipt verification', () => {
+  it('M3-UI-06: renders DeliveriesPage with delivery tracking and receipt verification', async () => {
     render(
       <HospitalPortal
         token="test-token"
@@ -212,7 +175,7 @@ describe('Member 3 — Hospital Dashboard & Emergency Coordination (M3 Frontend)
       />
     );
 
-    expect(screen.getByText(/Request Tracking & Blood Bank Deliveries/i)).toBeDefined();
+    await waitFor(() => expect(screen.getByText(/Request Tracking & Blood Bank Deliveries/i)).toBeDefined());
     expect(screen.getByText(/In-Transit Dispatches/i)).toBeDefined();
     expect(screen.getByText(/Received Deliveries History/i)).toBeDefined();
   });

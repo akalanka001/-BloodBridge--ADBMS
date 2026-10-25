@@ -92,10 +92,20 @@ export class InstitutionsService {
       outerQuery += ` WHERE ${conditions.join(' AND ')}`;
     }
 
-    outerQuery += ' ORDER BY inst.type, inst.name ASC';
+    let pagination;
+    if (filters.limit) {
+      const count = await pool.query(`SELECT count(*)::int AS total FROM (${outerQuery}) matched`, params);
+      pagination = { total: count.rows[0]?.total || 0, pageSize: filters.limit,
+        page: Math.floor((filters.offset || 0) / filters.limit) + 1 };
+    }
+    outerQuery += ' ORDER BY inst.type, inst.name ASC, inst.id ASC';
+    if (filters.limit) {
+      outerQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(filters.limit, filters.offset || 0);
+    }
 
     const { rows } = await pool.query(outerQuery, params);
-    return rows;
+    return pagination ? { rows, pagination } : rows;
   }
 
   async createInstitution(data, adminUser) {

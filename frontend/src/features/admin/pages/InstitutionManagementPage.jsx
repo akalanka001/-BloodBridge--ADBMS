@@ -12,7 +12,9 @@ import {
   RefreshCw,
   Phone,
 } from 'lucide-react';
-import { getInstitutions, getProvinces, getDistricts } from '../api/adminApi.js';
+import { getInstitutions, getProvinces, getDistricts, getDsDivisions } from '../api/adminApi.js';
+import { api } from '../../../lib/api.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 import { InstitutionModal } from '../components/InstitutionModal.jsx';
 import { InstitutionVerifyModal } from '../components/InstitutionVerifyModal.jsx';
 
@@ -21,6 +23,9 @@ export function InstitutionManagementPage({ token }) {
   const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -34,6 +39,10 @@ export function InstitutionManagementPage({ token }) {
   const [provinces, setProvinces] = useState([]);
   const [selectedGeoProv, setSelectedGeoProv] = useState('');
   const [geoDistricts, setGeoDistricts] = useState([]);
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [selectedDs, setSelectedDs] = useState('');
+  const [dsDivisions, setDsDivisions] = useState([]);
+  const [gnDivisions, setGnDivisions] = useState([]);
 
   const loadInstitutions = async () => {
     setLoading(true);
@@ -44,8 +53,10 @@ export function InstitutionManagementPage({ token }) {
         type,
         search: search.trim() || undefined,
         isVerified: verifiedFilter !== '' ? verifiedFilter : undefined,
+        limit: pageSize, offset: (page - 1) * pageSize,
       });
       setInstitutions(res.data || []);
+      setTotal(res.pagination?.total ?? res.data?.length ?? 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,7 +68,8 @@ export function InstitutionManagementPage({ token }) {
     if (activeTab !== 'GEO') {
       loadInstitutions();
     }
-  }, [token, activeTab, verifiedFilter]);
+  }, [token, activeTab, verifiedFilter, page, pageSize]);
+  useEffect(() => { setPage(1); }, [activeTab, verifiedFilter]);
 
   // Load geography when GEO tab is opened
   useEffect(() => {
@@ -82,9 +94,28 @@ export function InstitutionManagementPage({ token }) {
     }
   }, [activeTab, selectedGeoProv]);
 
+  useEffect(() => {
+    setSelectedDistrict(''); setSelectedDs(''); setDsDivisions([]); setGnDivisions([]);
+  }, [selectedGeoProv]);
+  useEffect(() => {
+    let active = true;
+    setSelectedDs(''); setDsDivisions([]); setGnDivisions([]);
+    if (selectedDistrict) getDsDivisions(selectedDistrict).then((res) => {
+      if (active) setDsDivisions(res.data || []);
+    }).catch((err) => { if (active) setError(err.message); });
+    return () => { active = false; };
+  }, [selectedDistrict]);
+  useEffect(() => {
+    let active = true; setGnDivisions([]);
+    if (selectedDs) api(`/locations/gn-divisions?${new URLSearchParams({ districtCode: selectedDistrict, dsCode: selectedDs })}`)
+      .then((res) => { if (active) setGnDivisions(res.data || []); })
+      .catch((err) => { if (active) setError(err.message); });
+    return () => { active = false; };
+  }, [selectedDs, selectedDistrict]);
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    loadInstitutions();
+    if (page !== 1) setPage(1); else loadInstitutions();
   };
 
   return (
@@ -391,12 +422,12 @@ export function InstitutionManagementPage({ token }) {
             <div>
               <h2 className="dash-card-title">Sri Lanka Geographical Reference Hierarchy</h2>
               <p className="dash-card-subtitle">
-                Hierarchical parent-child references: <strong>Province → District → DS Division</strong>
+                Synthetic reference examples: <strong>Province → District → DS Division → optional GN Division</strong>
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 20 }}>
             {/* Province selection */}
             <div>
               <h3 style={{ fontSize: 13, fontWeight: 700, color: '#1D3043', marginBottom: 10 }}>
@@ -437,8 +468,11 @@ export function InstitutionManagementPage({ token }) {
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
                 {geoDistricts.map((d) => (
-                  <div
+                  <button
                     key={d.code}
+                    type="button"
+                    onClick={() => setSelectedDistrict(d.code)}
+                    aria-pressed={selectedDistrict === d.code}
                     style={{
                       background: '#F8FAFC',
                       border: '1px solid #E8ECF2',
@@ -450,13 +484,27 @@ export function InstitutionManagementPage({ token }) {
                     <div style={{ fontSize: 11, color: '#7A8B9E', marginTop: 4 }}>
                       District Code: <code>{d.code}</code>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {activeTab === 'GEO' && <div className="dash-card" style={{ padding: 20 }}>
+        <h3>DS and GN divisions</h3>
+        <p>Select a district above, then a DS division. Unseeded GN data is optional.</p>
+        <label htmlFor="admin-geo-ds" className="form-label">DS division</label>
+        <select id="admin-geo-ds" className="form-control" value={selectedDs} disabled={!selectedDistrict} onChange={(e) => setSelectedDs(e.target.value)}>
+          <option value="">{selectedDistrict ? 'Select DS division' : 'Select a district first'}</option>
+          {dsDivisions.map((ds) => <option key={ds.code} value={ds.code}>{ds.name}</option>)}
+        </select>
+        {selectedDistrict && dsDivisions.length === 0 && <p>No DS reference records available for this district.</p>}
+        {selectedDs && (gnDivisions.length ? <ul>{gnDivisions.map((gn) => <li key={gn.code}>{gn.name} ({gn.code})</li>)}</ul> : <p>No GN reference data has been seeded for this DS division.</p>)}
+      </div>}
+      {activeTab !== 'GEO' && !loading && <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />}
 
       {/* Modals */}
       <InstitutionModal

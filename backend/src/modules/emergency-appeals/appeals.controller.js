@@ -1,5 +1,6 @@
 import { createAppealSchema, escalateAppealSchema } from './appeals.validation.js';
 import { appealsService } from './appeals.service.js';
+import { requestFiltersSchema } from '../requests/requests.validation.js';
 
 export class AppealsController {
   async createAppeal(req, res, next) {
@@ -24,8 +25,9 @@ export class AppealsController {
   async getAppealsByHospital(req, res, next) {
     try {
       const hospitalId = Number(req.params.hospitalId);
-      const appeals = await appealsService.listAppealsByHospital(hospitalId, req.user.id);
-      res.json({ data: appeals });
+      const filters = requestFiltersSchema.parse({ ...req.query, hospitalId: req.params.hospitalId });
+      const result = await appealsService.listAppealsByHospital(filters.hospitalId, req.user.id, filters);
+      res.json(result);
     } catch (err) {
       next(err);
     }

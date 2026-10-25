@@ -18,6 +18,7 @@ import { InviteStaffModal } from '../components/InviteStaffModal.jsx';
 import { StaffMembershipModal } from '../components/StaffMembershipModal.jsx';
 import { UserStatusModal } from '../components/UserStatusModal.jsx';
 import { DonorClaimReview } from '../components/DonorClaimReview.jsx';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function UserManagementPage({ token }) {
   const [activeSubTab, setActiveSubTab] = useState('users'); // 'users' | 'memberships' | 'claims'
@@ -25,6 +26,8 @@ export function UserManagementPage({ token }) {
   // Users state
   const [users, setUsers] = useState([]);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -34,6 +37,8 @@ export function UserManagementPage({ token }) {
   // Memberships state
   const [memberships, setMemberships] = useState([]);
   const [loadingMemberships, setLoadingMemberships] = useState(false);
+  const [membershipPage, setMembershipPage] = useState(1);
+  const [membershipTotal, setMembershipTotal] = useState(0);
 
   // Selected user for modals
   const [selectedUserForStatus, setSelectedUserForStatus] = useState(null);
@@ -48,7 +53,8 @@ export function UserManagementPage({ token }) {
         search: search.trim() || undefined,
         role: roleFilter || undefined,
         isActive: statusFilter !== '' ? statusFilter : undefined,
-        limit: 50,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
       });
       setUsers(res.data?.users || []);
       setTotalUsers(res.data?.total || 0);
@@ -62,8 +68,9 @@ export function UserManagementPage({ token }) {
   const loadMemberships = async () => {
     setLoadingMemberships(true);
     try {
-      const res = await getStaffMemberships(token);
+      const res = await getStaffMemberships(token, { limit: pageSize, offset: (membershipPage - 1) * pageSize });
       setMemberships(res.data || []);
+      setMembershipTotal(res.pagination?.total ?? res.data?.length ?? 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,11 +84,13 @@ export function UserManagementPage({ token }) {
     } else if (activeSubTab === 'memberships') {
       loadMemberships();
     }
-  }, [token, activeSubTab, roleFilter, statusFilter]);
+  }, [token, activeSubTab, roleFilter, statusFilter, page, pageSize, membershipPage]);
+
+  useEffect(() => { setPage(1); }, [roleFilter, statusFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    loadUsers();
+    if (page !== 1) setPage(1); else loadUsers();
   };
 
   return (
@@ -468,6 +477,10 @@ export function UserManagementPage({ token }) {
       )}
 
       {/* TAB 3: DONOR LINK CLAIMS */}
+      {activeSubTab === 'users' && !loadingUsers && <Pagination page={page} pageSize={pageSize} total={totalUsers}
+        onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />}
+      {activeSubTab === 'memberships' && !loadingMemberships && <Pagination page={membershipPage} pageSize={pageSize} total={membershipTotal}
+        onPageChange={setMembershipPage} onPageSizeChange={(size) => { setPageSize(size); setMembershipPage(1); }} />}
       {activeSubTab === 'claims' && <DonorClaimReview token={token} />}
 
       {/* Modals */}

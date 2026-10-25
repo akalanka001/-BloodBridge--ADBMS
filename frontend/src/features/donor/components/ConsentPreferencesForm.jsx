@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Bell, Smartphone, Mail, AlertTriangle, Check, Loader2 } from 'lucide-react';
 
 export function ConsentPreferencesForm({
@@ -17,6 +17,17 @@ export function ConsentPreferencesForm({
   });
 
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    setFormData({
+      availableForContact: Boolean(preferences?.available_for_contact ?? preferences?.availableForContact),
+      emergencyAppealOptIn: Boolean(preferences?.emergency_appeal_opt_in ?? preferences?.emergencyAppealOptIn),
+      campNotificationsOptIn: Boolean(preferences?.camp_notifications_opt_in ?? preferences?.campNotificationsOptIn),
+      inAppAlerts: Boolean(preferences?.in_app_alerts ?? preferences?.inAppAlerts ?? true),
+      smsAlerts: Boolean(preferences?.sms_alerts ?? preferences?.smsAlerts),
+      emailAlerts: Boolean(preferences?.email_alerts ?? preferences?.emailAlerts),
+      newsletterOptIn: Boolean(preferences?.newsletter_opt_in ?? preferences?.newsletterOptIn),
+    });
+  }, [preferences]);
 
   const handleChange = (field) => {
     setFormData((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -27,7 +38,7 @@ export function ConsentPreferencesForm({
     setMessage('');
     try {
       await onSave(formData);
-      setMessage('Preferences successfully saved and recorded in audit log.');
+      setMessage('Your preferences have been saved.');
     } catch (err) {
       setMessage(`Error: ${err.message}`);
     }

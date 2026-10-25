@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { getDonorClaims, approveDonorClaim, rejectDonorClaim } from '../api/adminApi.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function DonorClaimReview({ token }) {
   const [claims, setClaims] = useState([]);
@@ -8,6 +9,9 @@ export function DonorClaimReview({ token }) {
   const [actionLoading, setActionLoading] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   const [rejectingClaimId, setRejectingClaimId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -16,8 +20,9 @@ export function DonorClaimReview({ token }) {
     setLoading(true);
     setError('');
     try {
-      const res = await getDonorClaims(token, 'PENDING');
+      const res = await getDonorClaims(token, 'PENDING', { limit: pageSize, offset: (page - 1) * pageSize });
       setClaims(res.data || []);
+      setTotal(res.pagination?.total ?? res.data?.length ?? 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -27,7 +32,7 @@ export function DonorClaimReview({ token }) {
 
   useEffect(() => {
     loadClaims();
-  }, [token]);
+  }, [token, page, pageSize]);
 
   const handleApprove = async (claimId) => {
     setActionLoading(claimId);
@@ -217,9 +222,11 @@ export function DonorClaimReview({ token }) {
         </div>
       ) : (
         <p style={{ color: '#7A8B9E', fontSize: 13, margin: 0 }}>
-          No pending account claims requiring review. All donor records are reconciled.
+          No pending account claims on this page.
         </p>
       )}
+      {!loading && !error && <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />}
     </div>
   );
 }

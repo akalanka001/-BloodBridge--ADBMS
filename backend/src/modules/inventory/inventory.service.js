@@ -10,11 +10,11 @@ export class InventoryService {
     if (user.role !== 'BANK_STAFF') {
       throw new ForbiddenError('Blood bank staff access required');
     }
-    const userBankId = await bankRepository.getUserBankId(user.id);
+    const userBankId = targetBankId ? Number(targetBankId) : await bankRepository.getUserBankId(user.id);
     if (!userBankId) {
       throw new ForbiddenError('No active blood bank membership found');
     }
-    if (targetBankId && Number(targetBankId) !== Number(userBankId)) {
+    if (!(await bankRepository.isStaffAtBank(user.id, userBankId))) {
       throw new ForbiddenError('Staff member not authorized for this blood bank (Forbidden: unauthorized blood bank scope)');
     }
     return userBankId;
@@ -86,14 +86,14 @@ export class InventoryService {
     return inventoryRepository.reserveBloodUnit(requestItemId, bloodUnitId, user.id);
   }
 
-  async getExpiryAlerts(user, bankId = null) {
+  async getExpiryAlerts(user, bankId = null, filters = {}) {
     const targetBankId = await this.assertBankStaffAuthorization(user, bankId);
-    return inventoryRepository.getExpiryAlerts(targetBankId);
+    return inventoryRepository.getExpiryAlerts(targetBankId, filters);
   }
 
-  async getInventoryMovements(user, bankId = null) {
+  async getInventoryMovements(user, bankId = null, filters = {}) {
     const targetBankId = await this.assertBankStaffAuthorization(user, bankId);
-    return inventoryRepository.getInventoryMovements(targetBankId);
+    return inventoryRepository.getInventoryMovements(targetBankId, filters);
   }
 }
 

@@ -60,7 +60,7 @@ export class AdminController {
     try {
       const filters = staffMembershipFilterSchema.parse(req.query);
       const data = await adminService.listStaffMemberships(filters);
-      res.json({ data });
+      res.json(Array.isArray(data) ? { data } : { data: data.rows, pagination: data.pagination });
     } catch (err) {
       next(err);
     }
@@ -93,7 +93,7 @@ export class AdminController {
     try {
       const filters = institutionFilterSchema.parse(req.query);
       const data = await adminService.listInstitutions(filters);
-      res.json({ data });
+      res.json(Array.isArray(data) ? { data } : { data: data.rows, pagination: data.pagination });
     } catch (err) {
       next(err);
     }
@@ -155,9 +155,9 @@ export class AdminController {
   // --- Donor Link Claims ---
   async getClaims(req, res, next) {
     try {
-      const { status } = claimQuerySchema.parse(req.query);
-      const data = await adminService.getClaims(status);
-      res.json({ data, count: data.length });
+      const filters = claimQuerySchema.parse(req.query);
+      const data = await adminService.getClaims(filters.status, filters);
+      res.json(Array.isArray(data) ? { data, count: data.length } : { data: data.rows, count: data.pagination.total, pagination: data.pagination });
     } catch (err) {
       next(err);
     }

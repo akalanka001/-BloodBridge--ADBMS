@@ -31,4 +31,8 @@ export const inventoryQuerySchema = z.object({
   releaseStatus: z.enum(['QUARANTINED', 'RELEASED', 'REJECTED']).optional(),
   inventoryStatus: z.enum(['IN_STOCK', 'RESERVED', 'IN_TRANSIT', 'ISSUED', 'DISCARDED']).optional(),
   search: z.string().optional(),
+  urgency: z.enum(['CRITICAL', 'WARNING', 'EXPIRED']).optional(),
+  action: z.string().trim().max(40).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  offset: z.coerce.number().int().min(0).default(0),
 });

@@ -12,10 +12,12 @@ export function RequestDetailsPage({
   onCancelRequest = () => {},
   onReceiveFulfillment = () => {},
   onInitiateAppeal = () => {},
+  onFindDonors = () => {},
+  onMatchingItemChange = () => {},
 }) {
   const [activeFulfillmentForReceipt, setActiveFulfillmentForReceipt] = useState(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState('Patient clinical condition resolved');
+  const [cancelReason, setCancelReason] = useState('');
 
   const items = request.items_json || [];
   const history = request.history || [];
@@ -23,6 +25,10 @@ export function RequestDetailsPage({
 
   return (
     <div className="request-details-page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="dash-card" style={{ padding: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: 12 }}>
+        <label>Matching summary for request item<select value={progressSummary?.requestItemId || ''} onChange={event => onMatchingItemChange(event.target.value)}><option value="" disabled>Choose an item</option>{items.map(item => <option key={item.itemId} value={item.itemId}>{item.bloodTypeCode} · {item.componentCode} · {item.unitsRequested} units</option>)}</select></label>
+        <button type="button" className="btn outline" onClick={onFindDonors}>Find potential donor candidates</button>
+      </div>
       {/* Top Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <button
@@ -125,7 +131,7 @@ export function RequestDetailsPage({
 
         {request.notes && (
           <div style={{ background: '#F7F9FC', padding: '10px 14px', borderRadius: 8, fontSize: 13, color: '#4B5563', marginBottom: 16 }}>
-            <strong>Clinical Notes:</strong> {request.notes}
+            <strong>Coordination notes:</strong> {request.notes}
           </div>
         )}
 
@@ -212,7 +218,7 @@ export function RequestDetailsPage({
                         <RequestStatusBadge status={ful.status} />
                       </div>
                       <div style={{ fontSize: 12, color: '#7A8B9E', marginTop: 4 }}>
-                        {ful.units_count || 1} units dispatched &bull; Created {new Date(ful.created_at).toLocaleString()}
+                        {ful.units_count ?? 'Unavailable'} units dispatched &bull; Created {new Date(ful.created_at).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}
                         {ful.received_at && ` &bull; Received by ${ful.receiver_name || 'Staff'} at ${new Date(ful.received_at).toLocaleTimeString()}`}
                       </div>
                       {ful.condition_notes && (

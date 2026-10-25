@@ -55,7 +55,7 @@ export class AuditService {
       FROM audit_logs al
       LEFT JOIN users u ON u.id = al.actor_id
       ${whereClause}
-      ORDER BY al.occurred_at DESC
+      ORDER BY al.occurred_at DESC, al.id DESC
       LIMIT $${idx} OFFSET $${idx + 1}
     `;
 

@@ -1,5 +1,6 @@
 export const PUBLIC_NAV = [
   { id: 'home', label: 'Home' },
+  { id: 'about', label: 'About us' },
   { id: 'camps', label: 'Find Camps' },
 ];
 

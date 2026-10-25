@@ -7,9 +7,9 @@ export function ReceiveBloodForm({
   onCancel = () => {},
   loading = false,
 }) {
-  const unitsCount = fulfillment.units_count || 1;
-  const [receivedQuantity, setReceivedQuantity] = useState(unitsCount);
-  const [conditionNotes, setConditionNotes] = useState('All units received at 4°C with intact seals');
+  const unitsCount = fulfillment.units_count ?? null;
+  const [receivedQuantity, setReceivedQuantity] = useState(unitsCount ?? '');
+  const [conditionNotes, setConditionNotes] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
@@ -17,6 +17,10 @@ export function ReceiveBloodForm({
     setError('');
 
     const qty = parseInt(receivedQuantity, 10);
+    if (!Number.isInteger(unitsCount) || unitsCount < 1) {
+      setError('Dispatched unit count unavailable. Reload the delivery before confirming.');
+      return;
+    }
     if (isNaN(qty) || qty <= 0) {
       setError('Received quantity must be a positive number');
       return;

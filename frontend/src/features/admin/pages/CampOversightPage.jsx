@@ -13,11 +13,15 @@ import {
   X,
 } from 'lucide-react';
 import { getCamps, getCampDetails } from '../api/adminApi.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function CampOversightPage({ token }) {
   const [camps, setCamps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -33,18 +37,11 @@ export function CampOversightPage({ token }) {
     try {
       const res = await getCamps(token, {
         status: statusFilter || undefined,
+        search: search.trim() || undefined,
+        limit: pageSize, offset: (page - 1) * pageSize,
       });
-      let list = res.data || [];
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        list = list.filter(
-          (c) =>
-            c.title?.toLowerCase().includes(q) ||
-            c.blood_bank_name?.toLowerCase().includes(q) ||
-            c.district_name?.toLowerCase().includes(q)
-        );
-      }
-      setCamps(list);
+      setCamps(res.data || []);
+      setTotal(res.pagination?.total ?? res.data?.length ?? 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -54,7 +51,8 @@ export function CampOversightPage({ token }) {
 
   useEffect(() => {
     loadCamps();
-  }, [token, statusFilter]);
+  }, [token, statusFilter, page, pageSize]);
+  useEffect(() => { setPage(1); }, [statusFilter]);
 
   const handleOpenDetails = async (campId) => {
     setLoadingDetails(true);
@@ -211,7 +209,7 @@ export function CampOversightPage({ token }) {
                     <td style={{ padding: '12px' }}>
                       <strong style={{ color: '#1D3043', display: 'block' }}>{camp.title}</strong>
                       <span style={{ fontSize: 11, color: '#7A8B9E' }}>
-                        ID: <code>{camp.id.slice(0, 8)}…</code>
+                        ID: <code>{camp.id ? String(camp.id).slice(0, 8) : 'Unavailable'}…</code>
                       </span>
                     </td>
                     <td style={{ padding: '12px', color: '#41566D' }}>
@@ -264,6 +262,7 @@ export function CampOversightPage({ token }) {
                         className="reg-btn-outline"
                         style={{ height: 32, padding: '0 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         onClick={() => handleOpenDetails(camp.id)}
+                        disabled={!camp.id}
                       >
                         <Eye size={12} /> Details
                       </button>
@@ -276,6 +275,8 @@ export function CampOversightPage({ token }) {
         )}
       </div>
 
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />
       {/* Camp Details Modal */}
       {selectedCamp && (
         <div

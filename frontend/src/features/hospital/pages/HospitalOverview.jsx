@@ -192,7 +192,7 @@ export function HospitalOverview({
                           <BloodTypeBadge bloodType={bloodType} />
                         </td>
                         <td style={{ padding: '14px 12px', fontSize: 14, fontWeight: 700, color: '#1D3043' }}>
-                          {String(req.total_requested_units || 1).padStart(2, '0')}
+                          {req.total_requested_units == null ? 'Unavailable' : String(req.total_requested_units).padStart(2, '0')}
                         </td>
                         <td style={{ padding: '14px 12px' }}>
                           <RequestUrgencyBadge urgency={req.urgency} />

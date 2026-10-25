@@ -1,3 +1,11 @@
+import { api } from '../../../lib/api.js';
+
+export function normalizeAdminCamp(camp) {
+  return { ...camp, id: camp.id || camp.camp_id || '',
+    blood_bank_name: camp.blood_bank_name || camp.coordinating_bank_name || null,
+    registered_donors: camp.registered_donors ?? camp.registered_count ?? 0 };
+}
+
 /**
  * Admin Portal API Client
  */
@@ -55,6 +63,8 @@ export async function getStaffMemberships(token, filters = {}) {
   if (filters.hospitalId) query.set('hospitalId', String(filters.hospitalId));
   if (filters.bloodBankId) query.set('bloodBankId', String(filters.bloodBankId));
   if (filters.isActive !== undefined && filters.isActive !== '') query.set('isActive', String(filters.isActive));
+  if (filters.limit) query.set('limit', filters.limit);
+  if (filters.offset != null) query.set('offset', filters.offset);
 
   const res = await fetch(`/api/v1/admin/staff-memberships?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -109,6 +119,8 @@ export async function getInstitutions(token, filters = {}) {
   if (filters.provinceCode) query.set('provinceCode', filters.provinceCode);
   if (filters.isVerified !== undefined && filters.isVerified !== '') query.set('isVerified', String(filters.isVerified));
   if (filters.search) query.set('search', filters.search);
+  if (filters.limit) query.set('limit', filters.limit);
+  if (filters.offset != null) query.set('offset', filters.offset);
 
   const res = await fetch(`/api/v1/admin/institutions?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -173,9 +185,12 @@ export async function getAuditLogs(token, filters = {}) {
   return res.json();
 }
 
-export async function getDonorClaims(token, status = '') {
-  const query = status ? `?status=${status}` : '';
-  const res = await fetch(`/api/v1/admin/donor-link-claims${query}`, {
+export async function getDonorClaims(token, status = '', filters = {}) {
+  const query = new URLSearchParams();
+  if (status) query.set('status', status);
+  if (filters.limit) query.set('limit', filters.limit);
+  if (filters.offset != null) query.set('offset', filters.offset);
+  const res = await fetch(`/api/v1/admin/donor-link-claims?${query}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch donor claims');
@@ -209,20 +224,16 @@ export async function getCamps(token, filters = {}) {
   if (filters.status) query.set('status', filters.status);
   if (filters.districtCode) query.set('districtCode', filters.districtCode);
   if (filters.bloodBankId) query.set('bloodBankId', String(filters.bloodBankId));
-
-  const res = await fetch(`/api/v1/camps?${query.toString()}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch camps');
-  return res.json();
+  if (filters.search) query.set('search', filters.search);
+  if (filters.limit) query.set('limit', filters.limit);
+  if (filters.offset != null) query.set('offset', filters.offset);
+  const result = await api(`/camps/managed?${query}`, {}, token);
+  return { ...result, data: (result.data || []).map(normalizeAdminCamp) };
 }
 
 export async function getCampDetails(token, id) {
-  const res = await fetch(`/api/v1/camps/${id}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch camp details');
-  return res.json();
+  const result = await api(`/camps/managed/${encodeURIComponent(id)}`, {}, token);
+  return { ...result, data: normalizeAdminCamp(result.data) };
 }
 
 export async function approveCamp(token, id) {
@@ -247,8 +258,10 @@ export async function rejectCamp(token, id, reason) {
   return res.json();
 }
 
-export async function getNotificationDeliveries(token) {
-  const res = await fetch('/api/v1/notifications/delivery-status', {
+export async function getNotificationDeliveries(token, filters = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, value); });
+  const res = await fetch(`/api/v1/notifications/delivery-status?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch delivery status');

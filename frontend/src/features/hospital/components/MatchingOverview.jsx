@@ -12,13 +12,13 @@ export function MatchingOverview({ summary = null, fallbackRequest = null }) {
     );
   }
 
-  const bloodType = summary?.bloodTypeCode || fallbackRequest?.blood_type_code || 'O+';
-  const component = summary?.componentCode || fallbackRequest?.component_code || 'RBC';
-  const units = summary?.unitsRequested || fallbackRequest?.units_requested || fallbackRequest?.total_requested_units || 1;
-  const progress = summary?.matchingProgress ?? 0;
-  const facilitiesCount = summary?.inventoryFacilitiesCount ?? 0;
-  const candidatesCount = summary?.potentialDonorsCount ?? 0;
-  const clinicalStatus = summary?.clinicalVerificationStatus || (facilitiesCount > 0 ? 'Stock verified in network' : 'Pending donor screening');
+  const bloodType = summary?.bloodTypeCode ?? fallbackRequest?.blood_type_code ?? 'Unknown';
+  const component = summary?.componentCode ?? fallbackRequest?.component_code ?? 'Component unavailable';
+  const units = summary?.unitsRequested ?? fallbackRequest?.units_requested ?? fallbackRequest?.total_requested_units ?? 'Unavailable';
+  const progress = summary?.matchingProgress ?? null;
+  const facilitiesCount = summary?.inventoryFacilitiesCount ?? 'Unavailable';
+  const candidatesCount = summary?.potentialDonorsCount ?? 'Unavailable';
+  const clinicalStatus = summary?.scope || summary?.clinicalVerificationStatus || 'Medical screening and component compatibility require staff verification.';
 
   return (
     <div
@@ -49,7 +49,7 @@ export function MatchingOverview({ summary = null, fallbackRequest = null }) {
       <div style={{ marginTop: 18, marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#1D3043' }}>Matching progress</span>
-          <span style={{ fontSize: 13, fontWeight: 800, color: '#DB3654' }}>{progress}%</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#DB3654' }}>{progress == null ? 'Unavailable' : `${progress}%`}</span>
         </div>
         <div style={{ width: '100%', height: 10, borderRadius: 6, backgroundColor: '#F2E7EC', overflow: 'hidden' }}>
           <div
@@ -131,7 +131,7 @@ export function MatchingOverview({ summary = null, fallbackRequest = null }) {
             <ShieldCheck size={18} />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1D3043' }}>Clinical verification</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1D3043' }}>Assessment scope</div>
             <div style={{ fontSize: 11, color: '#7A8B9E' }}>
               {clinicalStatus}
             </div>

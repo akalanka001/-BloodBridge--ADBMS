@@ -5,11 +5,11 @@ export function HospitalReportsPage({
   kpis = {},
   requests = [],
 }) {
-  const total = kpis.total_requests || requests.length || 0;
-  const fulfilled = kpis.fulfilled_this_month || requests.filter(r => r.status === 'FULFILLED').length;
-  const critical = kpis.critical_priority || requests.filter(r => r.urgency === 'CRITICAL').length;
-  const urgent = requests.filter(r => r.urgency === 'URGENT').length;
-  const routine = requests.filter(r => r.urgency === 'ROUTINE').length;
+  const total = kpis.total_requests ?? 0;
+  const fulfilled = kpis.fulfilled_requests ?? 0;
+  const critical = kpis.critical_requests ?? 0;
+  const urgent = kpis.urgent_requests ?? 0;
+  const routine = kpis.routine_requests ?? 0;
 
   const fulfillmentRate = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
 
@@ -18,10 +18,10 @@ export function HospitalReportsPage({
       <div>
         <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1D3043', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
           <TrendingUp size={24} color="#DB3654" />
-          Hospital Statistics & Transfusion Analytics
+          Hospital request reports
         </h2>
         <span style={{ fontSize: 13, color: '#7A8B9E' }}>
-          Real-time metrics, requisition fulfillment rates, and component urgency distribution
+          All-time request totals for this hospital, counted from the full dataset.
         </span>
       </div>
 
@@ -45,7 +45,7 @@ export function HospitalReportsPage({
             </div>
             <span className="dash-kpi-label">Fulfillment Rate</span>
           </div>
-          <div className="dash-kpi-value">{fulfillmentRate}%</div>
+          <div className="dash-kpi-value">{total > 0 ? `${fulfillmentRate}%` : 'No requests'}</div>
           <div className="dash-kpi-note">{fulfilled} requests completed</div>
         </div>
 

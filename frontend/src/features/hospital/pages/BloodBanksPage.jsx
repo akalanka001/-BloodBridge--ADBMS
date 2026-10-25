@@ -41,7 +41,7 @@ export function BloodBanksPage({
             Network Blood Banks & Available Stock
           </h2>
           <span style={{ fontSize: 13, color: '#7A8B9E' }}>
-            Verified national blood bank clusters and released, screened component availability
+            Demonstration blood banks and available released component inventory
           </span>
         </div>
 

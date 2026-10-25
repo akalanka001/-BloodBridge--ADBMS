@@ -50,7 +50,7 @@ export function AnalyticsOverview({ token }) {
           metrics: sumRes.data?.metrics || {},
           demandByGroup: [],
           requestTrends: [],
-          etlPipeline: { dataFreshness: 'Operational', status: 'IDLE' },
+          etlPipeline: { dataFreshness: 'Unavailable', status: 'UNKNOWN' },
           benchmarks: { templates: [] },
         });
       }

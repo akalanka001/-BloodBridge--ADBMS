@@ -39,7 +39,7 @@ export class MembershipsService {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const query = `
+    let query = `
       SELECT sm.id,
              sm.user_id,
              u.full_name AS user_name,
@@ -65,8 +65,16 @@ export class MembershipsService {
       ORDER BY sm.id DESC
     `;
 
+    let pagination;
+    if (filters.limit) {
+      const count = await pool.query(`SELECT count(*)::int AS total FROM (${query}) matching`, params);
+      pagination = { total: count.rows[0]?.total || 0, pageSize: filters.limit,
+        page: Math.floor((filters.offset || 0) / filters.limit) + 1 };
+      query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(filters.limit, filters.offset || 0);
+    }
     const { rows } = await pool.query(query, params);
-    return rows;
+    return pagination ? { rows, pagination } : rows;
   }
 
   async assignMembership({ userId, role, hospitalId, bloodBankId, isActive = true, reason }, adminUser) {

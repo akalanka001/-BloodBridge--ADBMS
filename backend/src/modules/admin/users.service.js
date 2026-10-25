@@ -78,7 +78,7 @@ export class UsersService {
       LEFT JOIN blood_banks bb ON bb.id = sm.blood_bank_id
       ${whereClause}
       GROUP BY u.id, d.id, d.blood_type_code, d.registration_origin
-      ORDER BY u.created_at DESC
+      ORDER BY u.created_at DESC, u.id DESC
       LIMIT $${idx} OFFSET $${idx + 1}
     `;
 

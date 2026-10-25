@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Send, CheckCircle2, AlertCircle, Plus, RefreshCw } from 'lucide-react';
 import { api } from '../../lib/api.js';
+import { Pagination } from '../../components/ui/Pagination.jsx';
 import { TransferCreateForm } from './components/TransferCreateForm.jsx';
 import { DispatchConfirmForm } from './components/DispatchConfirmForm.jsx';
 import { ReceiveConfirmForm } from './components/ReceiveConfirmForm.jsx';
 
-export function TransfersPortal({ token, userBankId = 1 }) {
+export function TransfersPortal({ token, userBankId, pageSize = 10 }) {
   const [transfers, setTransfers] = useState([]);
   const [availableUnits, setAvailableUnits] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, limit: pageSize });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -18,10 +21,11 @@ export function TransfersPortal({ token, userBankId = 1 }) {
     setError('');
     try {
       const [trfRes, unitsRes] = await Promise.all([
-        api(`/transfers?bankId=${userBankId}`, {}, token),
-        api('/inventory/units?inventoryStatus=IN_STOCK', {}, token).catch(() => ({ data: [] })),
+        api(`/transfers?bankId=${userBankId}&limit=${pageSize}&offset=${(page - 1) * pageSize}`, {}, token),
+        api(`/inventory/units?bankId=${userBankId}&inventoryStatus=IN_STOCK&releaseStatus=RELEASED&limit=100`, {}, token).catch(() => ({ data: [] })),
       ]);
       setTransfers(trfRes.data || []);
+      setPagination(trfRes.pagination || { total: trfRes.count || 0, limit: pageSize });
       setAvailableUnits(unitsRes.data || []);
     } catch (err) {
       setError(err.message);
@@ -31,8 +35,10 @@ export function TransfersPortal({ token, userBankId = 1 }) {
   };
 
   useEffect(() => {
-    if (token) loadData();
-  }, [token, userBankId]);
+    if (token && userBankId) loadData();
+  }, [token, userBankId, page, pageSize]);
+
+  if (!userBankId) return <div className="bb-empty" role="alert">Select an assigned blood bank before managing transfers.</div>;
 
   const handleCreateTransfer = async (payload) => {
     setLoading(true);
@@ -244,6 +250,7 @@ export function TransfersPortal({ token, userBankId = 1 }) {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} total={pagination.total} onPageChange={setPage} loading={loading} />
       </div>
 
       {/* New Transfer Modal */}

@@ -58,8 +58,8 @@ export class AdminService {
   }
 
   // Claims
-  async getClaims(status) {
-    return adminRepository.listClaims(status);
+  async getClaims(status, filters = {}) {
+    return adminRepository.listClaims(status, filters);
   }
 
   async approveClaim(claimId, reviewerId) {

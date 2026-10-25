@@ -5,7 +5,8 @@ export class DonorsRepository {
   async findDonorByUserId(userId, client = pool) {
     const { rows } = await client.query(
       `SELECT d.id, d.user_id, d.blood_type_code, d.district_code, dist.name AS district_name,
-              d.ds_code, ds.name AS ds_name, d.gn_code, d.town, d.birth_date, d.weight_kg,
+              d.ds_code, ds.name AS ds_name, d.gn_code, d.town, d.birth_date::text AS birth_date, d.weight_kg,
+              dist.province_code, u.email_verified,
               d.available_for_contact, d.camp_notifications_opt_in,
               d.registration_origin, d.created_at,
               COALESCE(u.full_name, d.full_name) AS full_name,
@@ -15,6 +16,8 @@ export class DonorsRepository {
               COALESCE(cons.email_alerts, FALSE) AS email_alerts,
               COALESCE(cons.in_app_alerts, TRUE) AS in_app_alerts,
               COALESCE(cons.newsletter_opt_in, FALSE) AS newsletter_opt_in,
+              COALESCE(cons.contact_allowed, FALSE) AS contact_allowed,
+              COALESCE(cons.emergency_appeal_opt_in, FALSE) AS emergency_appeal_opt_in,
               (SELECT count(*)::int FROM donations dn WHERE dn.donor_id = d.id AND dn.process_status <> 'REJECTED') AS donation_count,
               (SELECT (count(*) > 0) FROM donations dn WHERE dn.donor_id = d.id AND dn.process_status = 'PROCESSED') AS is_medically_verified
        FROM donors d
@@ -53,7 +56,7 @@ export class DonorsRepository {
 
   async updateDonorPreferences(userId, prefs) {
     return inTransaction(async (client) => {
-      const donorRes = await client.query(`SELECT id FROM donors WHERE user_id = $1`, [userId]);
+      const donorRes = await client.query(`SELECT id, available_for_contact, camp_notifications_opt_in FROM donors WHERE user_id = $1 FOR UPDATE`, [userId]);
       if (!donorRes.rows[0]) return null;
       const donorId = donorRes.rows[0].id;
 
@@ -88,9 +91,9 @@ export class DonorsRepository {
       );
 
       const cur = existingConsent.rows[0] || {
-        contact_allowed: true,
-        camp_notification_opt_in: true,
-        emergency_appeal_opt_in: true,
+        contact_allowed: donorRes.rows[0].available_for_contact,
+        camp_notification_opt_in: donorRes.rows[0].camp_notifications_opt_in,
+        emergency_appeal_opt_in: false,
         sms_alerts: false,
         email_alerts: false,
         in_app_alerts: true,
@@ -214,12 +217,22 @@ export class DonorsRepository {
     return rows[0]?.review_info || null;
   }
 
-  async listVerifiedDonations(donorId) {
+  async listVerifiedDonations(donorId, filters = {}) {
+    const params = [donorId];
+    const conditions = ['donor_id = $1'];
+    if (filters.search) { params.push(`%${filters.search}%`); conditions.push(`(location_name ILIKE $${params.length} OR blood_bank_name ILIKE $${params.length} OR camp_title ILIKE $${params.length})`); }
+    if (filters.year) { params.push(Number(filters.year)); conditions.push(`EXTRACT(YEAR FROM collected_at) = $${params.length}`); }
+    const where = conditions.join(' AND ');
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
+    const { rows: countRows } = await pool.query(`SELECT count(*)::int AS total FROM v_verified_donation_history WHERE ${where}`, params);
+    const total = countRows[0]?.total || 0;
     const { rows } = await pool.query(
-      `SELECT * FROM v_verified_donation_history WHERE donor_id = $1`,
-      [donorId],
+      `SELECT * FROM v_verified_donation_history WHERE ${where}
+       ORDER BY collected_at DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
     );
-    return rows;
+    return { data: rows, pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async listInvitations(donorId) {
@@ -310,7 +323,18 @@ export class DonorsRepository {
     });
   }
 
-  async listAppointments(donorId) {
+  async listAppointments(donorId, filters = {}) {
+    const conditions = ['da.donor_id = $1'];
+    const params = [donorId];
+    if (filters.search) { params.push(`%${filters.search}%`); conditions.push(`(bb.name ILIKE $${params.length} OR c.title ILIKE $${params.length})`); }
+    const where = conditions.join(' AND ');
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
+    const joins = `FROM donor_appointments da
+       LEFT JOIN blood_banks bb ON bb.id = da.blood_bank_id
+       LEFT JOIN donation_camps c ON c.id = da.camp_id`;
+    const { rows: countRows } = await pool.query(`SELECT count(*)::int AS total ${joins} WHERE ${where}`, params);
+    const total = countRows[0]?.total || 0;
     const { rows } = await pool.query(
       `SELECT da.id, da.appointment_date, da.time_slot, da.donation_type, da.status,
               da.notes, da.created_at,
@@ -318,14 +342,13 @@ export class DonorsRepository {
               bb.name AS blood_bank_name,
               c.id AS camp_id,
               c.title AS camp_title
-       FROM donor_appointments da
-       LEFT JOIN blood_banks bb ON bb.id = da.blood_bank_id
-       LEFT JOIN donation_camps c ON c.id = da.camp_id
-       WHERE da.donor_id = $1
-       ORDER BY da.appointment_date DESC, da.created_at DESC`,
-      [donorId],
+       ${joins}
+       WHERE ${where}
+       ORDER BY da.appointment_date DESC, da.created_at DESC, da.id DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
     );
-    return rows;
+    return { data: rows, pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async createAppointment(donorId, data) {

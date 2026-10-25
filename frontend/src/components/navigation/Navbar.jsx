@@ -33,36 +33,40 @@ export function Navbar({ page, loggedIn, user, onLogout }) {
   };
 
   return (
-    <header className="topbar">
-      <div className="navbar wrap">
+    <header className="site-header">
+      <div className="container site-nav">
         <a
           className="brand"
           href="#home"
-          onClick={() => {
+          aria-label="BloodBridge platform"
+          onClick={(e) => {
+            e.preventDefault();
             setOpen(false);
             navigate('home');
           }}
         >
-          <span className="brand-mark">
-            <Heart size={20} fill="white" />
+          <span className="mark">
+            <Heart size={22} fill="white" strokeWidth={0} />
           </span>
           <span>
-            Blood<span className="brand-red">Bridge</span>
+            Blood<span>Bridge</span>
             <small>CONNECTING COMMUNITIES</small>
           </span>
         </a>
 
         {/* Desktop and Accessible Mobile Navigation */}
         <nav
-          aria-label="Main navigation"
-          className={open ? 'navigation opened' : 'navigation'}
+          aria-label="Public navigation"
+          className={open ? 'public-links open' : 'public-links'}
         >
           {navItems.map((item) => (
             <a
               key={item.id}
               href={'#' + item.id}
               className={page === item.id ? 'active' : ''}
-              onClick={() => {
+              aria-current={page === item.id ? 'page' : undefined}
+              onClick={(e) => {
+                e.preventDefault();
                 setOpen(false);
                 navigate(item.id);
               }}
@@ -70,56 +74,10 @@ export function Navbar({ page, loggedIn, user, onLogout }) {
               {item.label}
             </a>
           ))}
-
-          {/* Mobile-only auth action when menu is open */}
-          {open && (
-            <div className="mobile-menu-auth" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {loggedIn ? (
-                <>
-                  <div style={{ fontSize: 12, color: '#68778c', padding: '6px 12px' }}>
-                    Signed in as <strong>{user?.fullName || user?.email}</strong> ({getRoleBadge(user?.role)})
-                  </div>
-                  <button
-                    className="outline small"
-                    onClick={() => {
-                      setOpen(false);
-                      onLogout();
-                    }}
-                    style={{ minHeight: 44, width: '100%' }}
-                  >
-                    <LogOut size={16} /> Log out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className="primary small"
-                    onClick={() => {
-                      setOpen(false);
-                      navigate('login');
-                    }}
-                    style={{ minHeight: 44, width: '100%' }}
-                  >
-                    Sign in <ArrowRight size={16} />
-                  </button>
-                  <button
-                    className="outline small"
-                    onClick={() => {
-                      setOpen(false);
-                      navigate('signup');
-                    }}
-                    style={{ minHeight: 44, width: '100%' }}
-                  >
-                    Register as Donor
-                  </button>
-                </>
-              )}
-            </div>
-          )}
         </nav>
 
-        {/* Desktop Actions */}
-        <div className="header-actions">
+        {/* Action Buttons */}
+        <div className="public-actions">
           {loggedIn ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span
@@ -128,20 +86,20 @@ export function Navbar({ page, loggedIn, user, onLogout }) {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 5,
-                  padding: '5px 10px',
+                  padding: '6px 12px',
                   borderRadius: 99,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 700,
                   background: '#f0f4f9',
-                  color: '#14243a',
+                  color: 'var(--navy)',
                 }}
               >
-                <User size={12} />
-                {user?.fullName?.split(' ')[0] || user?.email?.split('@')[0]}
+                <User size={13} />
+                <span>{user?.fullName?.split(' ')[0] || user?.email?.split('@')[0]}</span>
                 <span
                   style={{
                     fontSize: 9,
-                    background: '#c9263e',
+                    background: 'var(--red)',
                     color: '#fff',
                     padding: '2px 6px',
                     borderRadius: 99,
@@ -152,7 +110,8 @@ export function Navbar({ page, loggedIn, user, onLogout }) {
                 </span>
               </span>
               <button
-                className="outline small"
+                type="button"
+                className="btn outline small"
                 onClick={onLogout}
                 title="Sign out of account"
               >
@@ -163,27 +122,32 @@ export function Navbar({ page, loggedIn, user, onLogout }) {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
-                className="outline small"
-                onClick={() => navigate('signup')}
-              >
-                Register
-              </button>
-              <button
-                className="primary small"
+                type="button"
+                className="btn outline small"
                 onClick={() => navigate('login')}
               >
-                Sign in <ArrowRight size={16} />
+                Sign in
+              </button>
+              <button
+                type="button"
+                className="btn primary small"
+                aria-label="Register as a donor"
+                onClick={() => navigate('signup')}
+              >
+                <span>Become a donor</span>
+                <ArrowRight size={14} />
               </button>
             </div>
           )}
 
           <button
-            className="menu-button"
-            aria-label={open ? 'Close menu' : 'Open menu'}
+            type="button"
+            className="btn iconbtn mobile-toggle"
+            aria-label={open ? 'Close navigation' : 'Toggle mobile navigation'}
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
           >
-            {open ? <X size={23} /> : <Menu size={23} />}
+            {open ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
@@ -193,12 +157,46 @@ export function Navbar({ page, loggedIn, user, onLogout }) {
 
 export function Footer() {
   return (
-    <footer className="footer">
-      <div className="wrap footer-inside">
-        <span>
-          <Heart size={16} fill="#C9263E" /> BloodBridge · Academic prototype
-        </span>
-        <span>Built for learning · Not for clinical use or live emergency decisions</span>
+    <footer className="site-footer">
+      <div className="container">
+        <div className="footergrid">
+          <div>
+            <span className="brand" style={{ color: 'white' }}>
+              <span className="mark">
+                <Heart size={22} fill="white" strokeWidth={0} />
+              </span>
+              <span>
+                Blood<span>Bridge</span>
+                <small style={{ color: '#9ab0c3' }}>CONNECTING COMMUNITIES</small>
+              </span>
+            </span>
+            <p>
+              Connecting donors, hospitals, and blood banks through clearer, more accountable coordination.
+            </p>
+            <span className="tag">Academic project · No clinical deployment</span>
+          </div>
+
+          <div>
+            <h4>Explore</h4>
+            <a href="#home" aria-label="BloodBridge landing page" onClick={() => navigate('home')}>Home</a>
+            <a href="#about" onClick={() => navigate('about')}>About BloodBridge</a>
+            <a href="#camps" onClick={() => navigate('camps')}>Donation camps</a>
+            <a href="#signup" onClick={() => navigate('signup')}>Become a donor</a>
+          </div>
+
+          <div>
+            <h4>Access</h4>
+            <a href="#login" onClick={() => navigate('login')}>Sign in</a>
+            <a href="#accept-invite" onClick={() => navigate('accept-invite')}>Staff activation</a>
+            <a href="#forgot-password" onClick={() => navigate('forgot-password')}>Reset password</a>
+            <a href="#donor" onClick={() => navigate('donor')}>Dashboard previews</a>
+          </div>
+        </div>
+
+        <div className="footerline">
+          <span>© BloodBridge · University learning prototype</span>
+          <span>For demonstration only. Not for clinical or emergency decisions.</span>
+        </div>
       </div>
     </footer>
   );

@@ -3,8 +3,8 @@ import { NotFoundError, ForbiddenError, BadRequestError } from '../../infrastruc
 import { pool } from '../../db.js';
 
 export class NotificationsService {
-  async getUserNotifications(userId) {
-    return notificationsRepository.getUserNotifications(userId);
+  async getUserNotifications(userId, filters = {}) {
+    return notificationsRepository.getUserNotifications(userId, filters);
   }
 
   async markAsRead(notificationId, userId) {
@@ -110,7 +110,7 @@ export class NotificationsService {
     return notificationsRepository.createNotification(data, senderUser.id);
   }
 
-  async getDeliveryStatusLog(limit = 100, user) {
+  async getDeliveryStatusLog(filters = {}, user) {
     if (!user) {
       throw new ForbiddenError('Authentication required');
     }
@@ -133,7 +133,7 @@ export class NotificationsService {
       throw new ForbiddenError('Access denied: role not authorized to view delivery logs');
     }
 
-    return notificationsRepository.getDeliveryStatusLog(limit, institutionScope);
+    return notificationsRepository.getDeliveryStatusLog(filters, institutionScope);
   }
 }
 

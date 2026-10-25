@@ -81,7 +81,7 @@ export function CreateRequestPage({
             cursor: 'pointer',
           }}
         >
-          <ArrowLeft size={16} /> Back to dashboard
+          <ArrowLeft size={16} /> Back to blood requests
         </button>
       </div>
 
@@ -182,12 +182,12 @@ export function CreateRequestPage({
           {/* Clinical Notes */}
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1D3043', marginBottom: 6 }}>
-              Clinical Indication / Special Instructions (Optional)
+              Coordination notes (optional, no patient details)
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Surgical intervention scheduled; cross-matched compatibility needed..."
+              placeholder="Component shortage and delivery coordination instructions"
               rows={3}
               className="dash-input"
               style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, resize: 'vertical' }}

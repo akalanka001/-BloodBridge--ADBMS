@@ -11,6 +11,9 @@ import { DonorNotificationsPage } from './pages/DonorNotificationsPage.jsx';
 import { DonorProfilePage } from './pages/DonorProfilePage.jsx';
 import { PrivacyPreferencesPage } from './pages/PrivacyPreferencesPage.jsx';
 import { AccountSettingsPage } from './pages/AccountSettingsPage.jsx';
+import { DonorAccountPage } from './pages/DonorAccountPage.jsx';
+import { ConsentPreferencesForm } from './components/ConsentPreferencesForm.jsx';
+import { SectionTabs } from '../../components/ui/SectionTabs.jsx';
 
 export function DonorPortal({
   profile,
@@ -21,6 +24,10 @@ export function DonorPortal({
 }) {
   const [dashboardData, setDashboardData] = useState(null);
   const [donations, setDonations] = useState([]);
+  const [donationPage, setDonationPage] = useState(1);
+  const [donationFilters, setDonationFilters] = useState({ search: '', year: '' });
+  const [donationPagination, setDonationPagination] = useState({ pageSize: 10, total: 0 });
+  const [donationLoading, setDonationLoading] = useState(false);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(token && token !== 'mock-donor-token');
   const [error, setError] = useState('');
@@ -39,23 +46,12 @@ export function DonorPortal({
     }
     setLoading(true);
     try {
-      const [dashRes, donRes, invRes] = await Promise.all([
-        donorApi.getDashboardSummary(token).catch((e) => {
-          console.warn('Dashboard summary error:', e.message);
-          return { data: null };
-        }),
-        donorApi.getDonations(token).catch((e) => {
-          console.warn('Donations error:', e.message);
-          return { data: [] };
-        }),
-        donorApi.getInvitations(token).catch((e) => {
-          console.warn('Invitations error:', e.message);
-          return { data: [] };
-        }),
+      setError('');
+      const [dashRes, invRes] = await Promise.all([
+        donorApi.getDashboardSummary(token), donorApi.getInvitations(token),
       ]);
 
       if (dashRes?.data) setDashboardData(dashRes.data);
-      if (donRes?.data) setDonations(donRes.data);
       if (invRes?.data) setInvitations(invRes.data);
     } catch (err) {
       setError(err.message);
@@ -71,6 +67,17 @@ export function DonorPortal({
       setLoading(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token || token === 'mock-donor-token' || activeTab !== 'donations') return undefined;
+    const controller = new AbortController();
+    setDonationLoading(true);
+    donorApi.getDonations(token, { limit: 10, offset: (donationPage - 1) * 10, ...donationFilters }, controller.signal)
+      .then(result => { if (!controller.signal.aborted) { setDonations(result.data || []); setDonationPagination({ pageSize: result.pagination?.limit || 10, total: result.pagination?.total || 0 }); } })
+      .catch(err => { if (!controller.signal.aborted) setError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setDonationLoading(false); });
+    return () => controller.abort();
+  }, [token, activeTab, donationPage, donationFilters]);
 
   const handleClaimSubmit = async (e) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
@@ -112,11 +119,10 @@ export function DonorPortal({
   const handleSavePreferences = async (formData) => {
     setSavingPref(true);
     try {
-      const res = await donorApi.updatePreferences(formData, token);
+      await donorApi.updatePreferences(formData, token);
+      const res = await donorApi.getProfile(token);
       setDashboardData((prev) => (prev ? { ...prev, ...res.data } : prev));
-      if (onProfileUpdate) {
-        onProfileUpdate({ ...profile, ...res.data });
-      }
+      if (onProfileUpdate) onProfileUpdate(res.data);
     } finally {
       setSavingPref(false);
     }
@@ -149,11 +155,17 @@ export function DonorPortal({
     fetchDonorData();
   };
 
+  const handleDonationFilters = (filters) => {
+    setDonationFilters(previous => previous.search === filters.search && previous.year === filters.year ? previous : filters);
+    setDonationPage(1);
+  };
+
   const effectiveDashboard =
     dashboardData || (profile ? { ...profile, total_donations: profile.donation_count || 0 } : null);
 
   return (
     <div className="donor-portal-container">
+      {error && <p className="notice error" role="alert">{error} <button onClick={fetchDonorData}>Retry</button></p>}
       {loading && !effectiveDashboard ? (
         <div className="py-20 text-center">
           <Loader2 size={36} className="animate-spin text-rose-600 mx-auto" />
@@ -180,9 +192,10 @@ export function DonorPortal({
           )}
 
           {activeTab === 'donations' && (
-            <DonationHistoryPage donations={donations} loading={loading} />
+            <DonationHistoryPage donations={donations} loading={donationLoading} pagination={donationPagination} page={donationPage} onPageChange={setDonationPage} onFiltersChange={handleDonationFilters} />
           )}
 
+          {['appointments', 'banks'].includes(activeTab) && <SectionTabs label="Appointments and blood banks" tabs={[{id:'appointments',label:'My appointments'},{id:'banks',label:'Find a blood bank'}]} activeTab={activeTab} onChange={onTabChange} />}
           {activeTab === 'appointments' && (
             <DonorAppointmentsPage
               token={token}
@@ -197,8 +210,7 @@ export function DonorPortal({
             />
           )}
 
-          {activeTab === 'camps' && <FindCampsPage token={token} />}
-          {activeTab === 'registrations' && <DonorRegistrationsPage token={token} />}
+          {['camps', 'registrations'].includes(activeTab) && <FindCampsPage token={token} initialSection={activeTab === 'registrations' ? 'registered' : 'explore'} />}
 
           {activeTab === 'notifications' && (
             <DonorNotificationsPage
@@ -208,28 +220,15 @@ export function DonorPortal({
             />
           )}
 
-          {activeTab === 'profile' && (
-            <DonorProfilePage
+          {['account', 'profile', 'preferences', 'settings'].includes(activeTab) && (
+            <DonorAccountPage
               profile={profile}
               token={token}
               onProfileUpdate={handleProfileUpdateSuccess}
             />
           )}
 
-          {activeTab === 'preferences' && (
-            <PrivacyPreferencesPage
-              profile={profile}
-              onSavePreferences={handleSavePreferences}
-              onToggleAvailability={handleToggleAvailability}
-              saving={savingPref}
-            />
-          )}
-
-          {activeTab === 'settings' && (
-            <AccountSettingsPage token={token} user={profile} />
-          )}
-
-          {!['overview', 'donations', 'appointments', 'banks', 'camps', 'registrations', 'notifications', 'profile', 'preferences', 'settings'].includes(activeTab) && (
+          {!['overview', 'donations', 'appointments', 'banks', 'camps', 'registrations', 'notifications', 'account', 'profile', 'preferences', 'settings'].includes(activeTab) && (
             <div className="py-16 text-center">
               <h3 className="text-lg font-bold text-navy">Section Not Found</h3>
               <p className="text-sm text-slate-500 mt-1">The requested donor section does not exist.</p>

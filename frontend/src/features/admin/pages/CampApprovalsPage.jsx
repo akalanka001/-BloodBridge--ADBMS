@@ -12,19 +12,24 @@ import {
 } from 'lucide-react';
 import { getCamps } from '../api/adminApi.js';
 import { CampApprovalModal } from '../components/CampApprovalModal.jsx';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function CampApprovalsPage({ token }) {
   const [pendingCamps, setPendingCamps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCampForReview, setSelectedCampForReview] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   const loadPendingCamps = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getCamps(token, { status: 'PENDING' });
-      setPendingCamps(res.data || []);
+      const res = await getCamps(token, { status: 'PENDING', limit: pageSize, offset: (page - 1) * pageSize });
+      setPendingCamps((res.data || []).filter((camp) => camp.status === 'PENDING'));
+      setTotal(res.pagination?.total ?? res.data?.length ?? 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,7 +39,7 @@ export function CampApprovalsPage({ token }) {
 
   useEffect(() => {
     loadPendingCamps();
-  }, [token]);
+  }, [token, page, pageSize]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -118,9 +123,9 @@ export function CampApprovalsPage({ token }) {
             >
               <BadgeCheck size={28} />
             </div>
-            <strong style={{ fontSize: 16, color: '#1D3043', display: 'block' }}>All Camps Reviewed</strong>
+            <strong style={{ fontSize: 16, color: '#1D3043', display: 'block' }}>{error ? 'Approval queue unavailable' : 'No pending camps'}</strong>
             <p style={{ fontSize: 13, color: '#7A8B9E', marginTop: 4, margin: '4px 0 0' }}>
-              No pending donation camps currently require administrative review.
+              {error ? 'Retry loading before making a review decision.' : 'No pending donation camps currently require administrative review.'}
             </p>
           </div>
         ) : (
@@ -170,7 +175,7 @@ export function CampApprovalsPage({ token }) {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Building2 size={14} color="#7A8B9E" />
-                      <span>{camp.blood_bank_name || 'Assigned Blood Bank'}</span>
+                      <span>{camp.blood_bank_name || 'Coordinating bank unavailable'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Calendar size={14} color="#7A8B9E" />
@@ -182,7 +187,7 @@ export function CampApprovalsPage({ token }) {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Users size={14} color="#7A8B9E" />
-                      <span>Target Capacity: <strong>{camp.capacity || 'Unlimited'}</strong></span>
+                      <span>Registration capacity: <strong>{camp.capacity ?? 'No fixed capacity'}</strong></span>
                     </div>
                   </div>
 
@@ -196,6 +201,7 @@ export function CampApprovalsPage({ token }) {
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     id={`btn-review-camp-${camp.id}`}
+                    disabled={!camp.id || camp.status !== 'PENDING'}
                     type="button"
                     className="dash-btn-primary"
                     style={{ minHeight: 38, padding: '0 16px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
@@ -211,7 +217,10 @@ export function CampApprovalsPage({ token }) {
       </div>
 
       {/* Review Modal */}
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />
       <CampApprovalModal
+        key={selectedCampForReview?.id || 'none'}
         isOpen={Boolean(selectedCampForReview)}
         camp={selectedCampForReview}
         onClose={() => setSelectedCampForReview(null)}

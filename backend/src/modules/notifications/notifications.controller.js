@@ -1,10 +1,11 @@
 import { notificationsService } from './notifications.service.js';
-import { sendNotificationSchema } from './notifications.validation.js';
+import { sendNotificationSchema, notificationsQuerySchema, deliveryQuerySchema } from './notifications.validation.js';
 
 export class NotificationsController {
   async getMyNotifications(req, res, next) {
     try {
-      const data = await notificationsService.getUserNotifications(req.user.id);
+      const filters = notificationsQuerySchema.parse(req.query);
+      const data = await notificationsService.getUserNotifications(req.user.id, filters);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -41,8 +42,9 @@ export class NotificationsController {
 
   async getDeliveryStatus(req, res, next) {
     try {
-      const data = await notificationsService.getDeliveryStatusLog(100, req.user);
-      res.json({ data });
+      const filters = deliveryQuerySchema.parse(req.query);
+      const result = await notificationsService.getDeliveryStatusLog(filters, req.user);
+      res.json({ data: result.data, count: result.pagination.total, pagination: result.pagination });
     } catch (err) {
       next(err);
     }

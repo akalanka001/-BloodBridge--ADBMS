@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Heart,
   Droplet,
@@ -10,18 +10,27 @@ import {
   FileCheck,
   Award,
 } from 'lucide-react';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
-export function DonationHistoryPage({ donations = [], loading = false }) {
+export function DonationHistoryPage({ donations = [], loading = false, pagination, page = 1, onPageChange, onFiltersChange }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [yearFilter, setYearFilter] = useState('ALL');
+  const [yearFilter, setYearFilter] = useState('');
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  useEffect(() => { onFiltersChangeRef.current = onFiltersChange; }, [onFiltersChange]);
+  useEffect(() => {
+    if (!onFiltersChangeRef.current) return undefined;
+    if (yearFilter && !/^\d{4}$/.test(yearFilter)) return undefined;
+    const timer = setTimeout(() => onFiltersChangeRef.current?.({ search: searchTerm.trim(), year: yearFilter }), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, yearFilter]);
 
-  const filteredDonations = donations.filter((dn) => {
+  const filteredDonations = onFiltersChange ? donations : donations.filter((dn) => {
     const matchesSearch =
       (dn.location_name || dn.blood_bank_name || dn.camp_title || '')
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
     const matchesYear =
-      yearFilter === 'ALL' ||
+      !yearFilter ||
       (dn.collected_at && new Date(dn.collected_at).getFullYear().toString() === yearFilter);
     return matchesSearch && matchesYear;
   });
@@ -31,21 +40,13 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
     0,
   );
 
-  const years = Array.from(
-    new Set(
-      donations
-        .map((d) => d.collected_at && new Date(d.collected_at).getFullYear())
-        .filter(Boolean),
-    ),
-  );
-
   return (
     <div className="donation-history-page">
       <div className="history-page-header">
         <div>
           <h2 className="page-heading">Verified Donation History</h2>
           <p className="page-subheading">
-            Official record of completed blood and component donations under the National Blood Bank network.
+            Donation records verified through the prototype’s registered blood bank and camp workflows.
           </p>
         </div>
       </div>
@@ -57,8 +58,8 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
             <Heart size={20} />
           </div>
           <div>
-            <span className="hist-kpi-label">Completed Collections</span>
-            <strong className="hist-kpi-val">{donations.length}</strong>
+            <span className="hist-kpi-label">Verified collections</span>
+            <strong className="hist-kpi-val">{pagination?.total ?? donations.length}</strong>
           </div>
         </div>
 
@@ -67,7 +68,7 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
             <Droplet size={20} />
           </div>
           <div>
-            <span className="hist-kpi-label">Total Volume</span>
+            <span className="hist-kpi-label">Volume on this page</span>
             <strong className="hist-kpi-val">{(totalVolume / 1000).toFixed(2)} Liters</strong>
           </div>
         </div>
@@ -77,8 +78,8 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
             <Award size={20} />
           </div>
           <div>
-            <span className="hist-kpi-label">Estimated Lives Supported</span>
-            <strong className="hist-kpi-val text-emerald-700">{donations.length * 3}</strong>
+            <span className="hist-kpi-label">Current page</span>
+            <strong className="hist-kpi-val text-emerald-700">{page}</strong>
           </div>
         </div>
       </div>
@@ -98,18 +99,16 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
 
         <div className="filter-select-wrap">
           <Filter size={16} className="text-slate-400" />
-          <select
+          <input
+            type="number"
+            min="1990"
+            max={new Date().getFullYear()}
             value={yearFilter}
             onChange={(e) => setYearFilter(e.target.value)}
             className="history-select"
-          >
-            <option value="ALL">All Years</option>
-            {years.map((yr) => (
-              <option key={yr} value={yr.toString()}>
-                {yr}
-              </option>
-            ))}
-          </select>
+            aria-label="Filter by year"
+            placeholder="Year"
+          />
         </div>
       </div>
 
@@ -121,7 +120,7 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
           </div>
           <h4 className="text-lg font-bold text-navy mt-3">No verified donations found</h4>
           <p className="text-slate-500 max-w-md mx-auto text-sm mt-1">
-            {searchTerm || yearFilter !== 'ALL'
+            {searchTerm || yearFilter
               ? 'No donation records matched your search filters.'
               : 'Donation records are verified and added to this ledger following in-person staff screening and collection.'}
           </p>
@@ -145,7 +144,7 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
 
                 <div className="record-details">
                   <h4 className="rec-facility-name">
-                    {item.location_name || item.blood_bank_name || item.camp_title || 'National Blood Transfusion Service'}
+                    {item.location_name || item.blood_bank_name || item.camp_title || 'Verified donor history'}
                   </h4>
                   <div className="rec-meta-tags">
                     <span className="rec-meta-item">
@@ -172,12 +171,12 @@ export function DonationHistoryPage({ donations = [], loading = false }) {
           ))}
         </div>
       )}
+      {pagination && <Pagination page={page} pageSize={pagination.pageSize || 10} total={pagination.total || 0} onPageChange={onPageChange} loading={loading} />}
 
       {/* Clinical Disclaimer */}
       <div className="history-disclaimer-note mt-6">
         <p className="text-xs text-slate-500 leading-relaxed">
-          <strong>Notice:</strong> Incomplete, medically deferred, or rejected donations are excluded from this verified clinical history.
-          Transfusion safety clearances and component separation are strictly governed by NBTS standard operating procedures.
+          <strong>Notice:</strong> This prototype displays records created by authorized staff. It does not provide donor eligibility or transfusion clearance; screening, component handling, and release decisions remain with authorized healthcare staff under applicable procedures.
         </p>
       </div>
     </div>

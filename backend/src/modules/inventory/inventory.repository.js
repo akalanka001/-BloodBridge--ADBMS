@@ -78,16 +78,23 @@ export class InventoryRepository {
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const query = `
-      SELECT bu.*
-      FROM v_blood_bank_inventory_units bu
-      ${whereClause}
-      ORDER BY bu.created_at DESC
-      LIMIT 200
-    `;
-
-    const { rows } = await pool.query(query, params);
-    return rows;
+    const { rows: countRows } = await pool.query(
+      `SELECT count(*)::int AS total FROM v_blood_bank_inventory_units bu ${whereClause}`,
+      params,
+    );
+    const total = countRows[0]?.total || 0;
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
+    const { rows } = await pool.query(
+      `SELECT bu.* FROM v_blood_bank_inventory_units bu ${whereClause}
+       ORDER BY bu.created_at DESC, bu.id ASC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...params, limit, offset],
+    );
+    return {
+      data: rows,
+      pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getUnitById(unitId) {
@@ -138,7 +145,7 @@ export class InventoryRepository {
     });
   }
 
-  async getExpiryAlerts(bankId) {
+  async getExpiryAlerts(bankId, filters = {}) {
     const params = [];
     let where = `WHERE bu.release_status = 'RELEASED' AND bu.inventory_status = 'IN_STOCK'`;
 
@@ -147,6 +154,17 @@ export class InventoryRepository {
       where += ` AND bu.blood_bank_id = $1`;
     }
 
+    const urgency = filters.urgency;
+    if (urgency === 'EXPIRED') where += ' AND bu.expires_at <= now()';
+    else if (urgency === 'CRITICAL') where += ' AND bu.expires_at > now() AND bu.expires_at <= now() + interval \'48 hours\'';
+    else if (urgency === 'WARNING') where += ' AND bu.expires_at > now() + interval \'48 hours\'';
+
+    const base = `FROM v_blood_bank_inventory_units bu ${where}
+       AND bu.expires_at <= now() + interval '7 days'`;
+    const { rows: countRows } = await pool.query(`SELECT count(*)::int AS total ${base}`, params);
+    const total = countRows[0]?.total || 0;
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
     const { rows } = await pool.query(
       `SELECT bu.*,
               CASE
@@ -155,32 +173,40 @@ export class InventoryRepository {
                 WHEN bu.expires_at <= now() + interval '7 days' THEN 'WARNING'
                 ELSE 'NORMAL'
               END AS alert_urgency
-       FROM v_blood_bank_inventory_units bu
-       ${where}
-       AND bu.expires_at <= now() + interval '7 days'
+       ${base}
        ORDER BY bu.expires_at ASC
-       LIMIT 100`,
-      params,
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
     );
-    return rows;
+    return { data: rows, pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getInventoryMovements(bankId = null, limit = 50) {
-    const params = [limit];
-    let where = '';
+  async getInventoryMovements(bankId = null, filters = {}) {
+    const params = [];
+    const conditions = [];
     if (bankId) {
       params.push(bankId);
-      where = 'WHERE blood_bank_id = $2';
+      conditions.push(`blood_bank_id = $${params.length}`);
     }
+    if (filters.action) { params.push(filters.action); conditions.push(`action = $${params.length}`); }
+    if (filters.search) { params.push(`%${filters.search}%`); conditions.push(`(blood_unit_id::text ILIKE $${params.length} OR actor_name ILIKE $${params.length} OR action ILIKE $${params.length})`); }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    const { rows: countRows } = await pool.query(
+      `SELECT count(*)::int AS total FROM v_inventory_movements_detail ${where}`,
+      params,
+    );
+    const total = countRows[0]?.total || 0;
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
     const { rows } = await pool.query(
       `SELECT * FROM v_inventory_movements_detail
        ${where}
-       ORDER BY acted_at DESC
-       LIMIT $1`,
-      params,
+       ORDER BY acted_at DESC, id DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
     );
-    return rows;
+    return { data: rows, pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 }
 

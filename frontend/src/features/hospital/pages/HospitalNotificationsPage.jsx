@@ -76,27 +76,14 @@ export function HospitalNotificationsPage({
     notificationsList.push({
       id: `app-${app.id}`,
       type: 'APPEAL',
-      title: `Emergency Appeal Escalated: ${app.current_stage || 'GN_DIVISION'}`,
-      message: `Emergency appeal #${app.id.slice(0, 8)} is actively seeking ${app.shortage_units} units across ${app.current_stage} radius.`,
+      title: `Emergency Appeal Escalated: ${app.escalation_level || 'Recorded'}`,
+      message: `Emergency appeal #${app.id.slice(0, 8)} is actively seeking ${app.shortage_units} units across ${app.escalation_level} area.`,
       timestamp: app.created_at,
       actionLabel: 'Manage Appeal',
       actionTab: 'emergency',
       requestId: app.request_id,
     });
   });
-
-  // Default network sync item if empty
-  if (notificationsList.length === 0) {
-    notificationsList.push({
-      id: 'sys-network-ready',
-      type: 'INFO',
-      title: 'National Blood Transfusion Network Synchronized',
-      message: 'All hospital requests, cold-chain transfers, and blood component quotas are synchronized in real-time.',
-      timestamp: new Date().toISOString(),
-      actionLabel: null,
-      actionTab: null,
-    });
-  }
 
   // Filter
   const filtered = notificationsList.filter((item) => {

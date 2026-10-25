@@ -14,8 +14,8 @@ export class AppealsService {
     return appeal;
   }
 
-  async listAppealsByHospital(hospitalId, userId) {
-    return appealsRepository.listAppealsByHospital(hospitalId, userId);
+  async listAppealsByHospital(hospitalId, userId, filters) {
+    return appealsRepository.listAppealsByHospital(hospitalId, userId, filters);
   }
 
   async escalateAppeal(appealId, userId, targetStage) {

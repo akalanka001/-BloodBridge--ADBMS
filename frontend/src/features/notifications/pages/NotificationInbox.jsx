@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, CheckCheck, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import { notificationsApi } from '../api/notificationsApi.js';
 import { NotificationCard } from '../components/NotificationCard.jsx';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function NotificationInbox({ user }) {
   const [notifications, setNotifications] = useState([]);
@@ -9,14 +10,22 @@ export function NotificationInbox({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 10;
 
   const fetchInbox = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await notificationsApi.getMyNotifications();
+      const filters = { limit: pageSize, offset: (page - 1) * pageSize };
+      if (activeTab === 'UNREAD') filters.status = 'UNREAD';
+      if (activeTab === 'CAMP') filters.category = 'CAMP';
+      if (activeTab === 'EMERGENCY') filters.category = 'EMERGENCY';
+      const res = await notificationsApi.getMyNotifications(filters);
       setNotifications(res.data?.notifications || []);
       setUnreadCount(res.data?.unreadCount || 0);
+      setTotal(res.data?.total || 0);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to load notifications');
     } finally {
@@ -24,9 +33,7 @@ export function NotificationInbox({ user }) {
     }
   };
 
-  useEffect(() => {
-    fetchInbox();
-  }, []);
+  useEffect(() => { fetchInbox(); }, [activeTab, page]);
 
   const handleMarkRead = async (id) => {
     try {
@@ -46,12 +53,7 @@ export function NotificationInbox({ user }) {
     } catch {}
   };
 
-  const filtered = notifications.filter((n) => {
-    if (activeTab === 'UNREAD') return n.status === 'UNREAD';
-    if (activeTab === 'CAMP') return n.category === 'CAMP';
-    if (activeTab === 'EMERGENCY') return n.category === 'EMERGENCY' || n.priority === 'EMERGENCY';
-    return true;
-  });
+  const filtered = notifications;
 
   const tabs = [
     { key: 'ALL', label: 'All Alerts' },
@@ -110,7 +112,7 @@ export function NotificationInbox({ user }) {
           <button
             key={tab.key}
             type="button"
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => { setActiveTab(tab.key); setPage(1); }}
             style={{
               padding: '6px 14px',
               borderRadius: '6px',
@@ -126,6 +128,8 @@ export function NotificationInbox({ user }) {
           </button>
         ))}
       </div>
+
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} loading={loading} />
 
       {/* Notification List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

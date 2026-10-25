@@ -1,6 +1,7 @@
 import {
   uuidParam,
   campQuerySchema,
+  registrationQuerySchema,
   createCampSchema,
   updateCampSchema,
   cancelCampSchema,
@@ -13,12 +14,8 @@ export class CampsController {
   async listCamps(req, res, next) {
     try {
       const filters = campQuerySchema.parse(req.query);
-      if (req.query.managed === 'true' && req.user && ['BANK_STAFF', 'ADMIN'].includes(req.user.role)) {
-        const data = await campsService.listManagedCamps(filters, req.user);
-        return res.json({ data });
-      }
-      const data = await campsService.listPublicCamps(filters);
-      res.json({ data });
+      const result = await campsService.listPublicCamps(filters);
+      res.json(result);
     } catch (err) {
       next(err);
     }
@@ -27,11 +24,32 @@ export class CampsController {
   async listManagedCamps(req, res, next) {
     try {
       const filters = campQuerySchema.parse(req.query);
-      const data = await campsService.listManagedCamps(filters, req.user);
-      res.json({ data });
+      const result = await campsService.listManagedCamps(filters, req.user);
+      res.json(result);
     } catch (err) {
       next(err);
     }
+  }
+
+  async discoverCamps(req, res, next) {
+    try {
+      const filters = campQuerySchema.parse({ ...req.query, sort: req.query.sort || 'nearby' });
+      res.json(await campsService.discoverCamps(filters, req.user));
+    } catch (err) { next(err); }
+  }
+
+  async getManagedCamp(req, res, next) {
+    try {
+      const id = uuidParam.parse(req.params.id);
+      res.json({ data: await campsService.getManagedCampById(id, req.user) });
+    } catch (err) { next(err); }
+  }
+
+  async getDonorCamp(req, res, next) {
+    try {
+      const id = uuidParam.parse(req.params.id);
+      res.json({ data: await campsService.getDonorCamp(id, req.user) });
+    } catch (err) { next(err); }
   }
 
   async getCamp(req, res, next) {
@@ -118,8 +136,8 @@ export class CampsController {
 
   async getMyRegistrations(req, res, next) {
     try {
-      const data = await campsService.getDonorRegistrations(req.user);
-      res.json({ data });
+      const filters = registrationQuerySchema.parse(req.query);
+      res.json(await campsService.getDonorRegistrations(req.user, filters));
     } catch (err) {
       next(err);
     }
@@ -128,8 +146,8 @@ export class CampsController {
   async listRegistrations(req, res, next) {
     try {
       const id = uuidParam.parse(req.params.id);
-      const data = await campsService.listCampRegistrations(id, req.user);
-      res.json({ data });
+      const filters = registrationQuerySchema.parse(req.query);
+      res.json(await campsService.listCampRegistrations(id, req.user, filters));
     } catch (err) {
       next(err);
     }

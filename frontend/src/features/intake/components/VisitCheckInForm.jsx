@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ClipboardCheck, CheckCircle, AlertCircle } from 'lucide-react';
 
 export function VisitCheckInForm({
-  userBankId = 1,
+  userBankId,
   initialDonorId = '',
   onCheckIn = () => {},
   loading = false,

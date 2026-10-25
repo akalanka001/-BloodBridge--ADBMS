@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { hospitalApi } from './api/hospitalApi.js';
 import { HospitalOverview } from './pages/HospitalOverview.jsx';
-import { BloodRequestsPage } from './pages/BloodRequestsPage.jsx';
+import { BloodRequestsPage, EMPTY_REQUEST_FILTERS } from './pages/BloodRequestsPage.jsx';
 import { CreateRequestPage } from './pages/CreateRequestPage.jsx';
 import { RequestDetailsPage } from './pages/RequestDetailsPage.jsx';
 import { EmergencyAppealsPage } from './pages/EmergencyAppealsPage.jsx';
@@ -10,357 +10,156 @@ import { FindDonorsPage } from './pages/FindDonorsPage.jsx';
 import { BloodBanksPage } from './pages/BloodBanksPage.jsx';
 import { HospitalReportsPage } from './pages/HospitalReportsPage.jsx';
 import { HospitalNotificationsPage } from './pages/HospitalNotificationsPage.jsx';
-import { AlertTriangle, CheckCircle, Bell, Clock } from 'lucide-react';
+import { Pagination } from '../../components/ui/Pagination.jsx';
+import { SectionTabs } from '../../components/ui/SectionTabs.jsx';
+import { useHospitalState } from './useHospitalState.js';
+import { updatePortalQuery } from '../../lib/portalNavigation.js';
 
-export function HospitalPortal({
-  token,
-  userHospitalId = 1,
-  activeTab = 'overview',
-  showNewForm = false,
-  onCloseForm = () => {},
-}) {
-  const [currentPage, setCurrentPage] = useState('overview');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+const REQUEST_VIEWS = ['requests', 'new-request', 'details', 'appeals', 'tracking'];
+const VIEWS = [...REQUEST_VIEWS, 'overview', 'donors', 'banks', 'reports', 'notifications'];
+const alias = page => page === 'emergency' ? 'appeals' : page;
+const primary = page => REQUEST_VIEWS.includes(alias(page)) ? 'requests' : page;
+
+export function HospitalPortal({ token, userHospitalId = null, activeTab = 'overview', showNewForm = false, onCloseForm = () => {}, onTabChange = () => {} }) {
+  const [storedPage, setStoredPage] = useHospitalState('view', 'overview');
+  const [selectedId, setSelectedId] = useHospitalState('request', null);
+  const [list, setList] = useHospitalState('list', { filters: EMPTY_REQUEST_FILTERS, page: 1, pageSize: 10 });
+  const [appealPage, setAppealPage] = useHospitalState('appealPage', { page: 1, pageSize: 10 });
+  const [deliveryPage, setDeliveryPage] = useHospitalState('deliveryPage', { page: 1, pageSize: 10 });
+  const [hospital, setHospital] = useState(null);
+  const [contextError, setContextError] = useState('');
+  const [revision, setRevision] = useState(0);
+  const [data, setData] = useState({ dashboard: null, stock: [], reports: null, appeals: [], requests: [], deliveries: [] });
+  const [errors, setErrors] = useState({});
+  const [busy, setBusy] = useState({});
+  const [pagination, setPagination] = useState({});
+  const [details, setDetails] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const [actionError, setActionError] = useState('');
   const [success, setSuccess] = useState('');
+  const [working, setWorking] = useState(false);
+  const [appealContext, setAppealContext] = useState(null);
+  const currentPage = showNewForm ? 'new-request' : primary(storedPage) === primary(alias(activeTab)) ? storedPage : alias(activeTab);
+  const refresh = () => setRevision(value => value + 1);
 
-  // Domain data
-  const [dashboardData, setDashboardData] = useState({
-    kpis: { active_requests: 0, critical_priority: 0, fulfilled_this_month: 0, total_requests: 0 },
-    recentRequests: [],
-    urgentShortages: [],
-    matchingOverview: null,
-  });
-  const [requests, setRequests] = useState([]);
-  const [availableStock, setAvailableStock] = useState([]);
-  const [appeals, setAppeals] = useState([]);
-
-  // Selected request for details
-  const [selectedRequestId, setSelectedRequestId] = useState(null);
-  const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
-  const [selectedRequestProgress, setSelectedRequestProgress] = useState(null);
-
-  // Synchronize activeTab from DashboardLayout
-  useEffect(() => {
-    if (showNewForm) {
-      setCurrentPage('new-request');
-      return;
-    }
-    if (!activeTab || activeTab === 'overview') {
-      setCurrentPage('overview');
-    } else if (activeTab === 'requests') {
-      setCurrentPage('requests');
-    } else if (activeTab === 'new-request') {
-      setCurrentPage('new-request');
-    } else if (activeTab === 'donors') {
-      setCurrentPage('donors');
-    } else if (activeTab === 'banks') {
-      setCurrentPage('banks');
-    } else if (activeTab === 'emergency' || activeTab === 'appeals') {
-      setCurrentPage('appeals');
-    } else if (activeTab === 'tracking') {
-      setCurrentPage('tracking');
-    } else if (activeTab === 'notifications') {
-      setCurrentPage('notifications');
-    } else if (activeTab === 'reports') {
-      setCurrentPage('reports');
-    }
-  }, [activeTab, showNewForm]);
-
-  // Load all initial data
-  const loadData = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError('');
-    try {
-      const [dashRes, reqsRes, stockRes, appealsRes] = await Promise.allSettled([
-        hospitalApi.getDashboard(userHospitalId, token),
-        hospitalApi.getRequests({}, token),
-        hospitalApi.getAvailableStock(userHospitalId, token),
-        hospitalApi.getEmergencyAppeals(userHospitalId, token),
-      ]);
-
-      if (dashRes.status === 'fulfilled') {
-        setDashboardData(dashRes.value.data || {});
-      }
-      if (reqsRes.status === 'fulfilled') {
-        setRequests(reqsRes.value.data || []);
-      }
-      if (stockRes.status === 'fulfilled') {
-        setAvailableStock(stockRes.value.data || []);
-      }
-      if (appealsRes.status === 'fulfilled') {
-        setAppeals(appealsRes.value.data || []);
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to load hospital operations data');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, userHospitalId]);
+  const go = useCallback((page, filters) => {
+    const next = alias(page);
+    if (filters) setList(previous => ({ ...previous, filters: { ...EMPTY_REQUEST_FILTERS, ...filters }, page: 1 }));
+    updatePortalQuery({ tab: primary(next), h_view: JSON.stringify(next) });
+    setStoredPage(next);
+    onTabChange(primary(next));
+  }, [onTabChange, setStoredPage, setList]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (['new-request', 'tracking', 'appeals', 'emergency'].includes(activeTab)) setStoredPage(alias(activeTab));
+  }, [activeTab]);
 
-  // Fetch details when selecting a request
-  const handleSelectRequest = async (id) => {
-    setSelectedRequestId(id);
-    setLoading(true);
-    try {
-      const [detailRes, progRes] = await Promise.all([
-        hospitalApi.getRequestById(id, token),
-        hospitalApi.getRequestProgress(id, token).catch(() => ({ data: null })),
-      ]);
-      setSelectedRequestDetails(detailRes.data);
-      setSelectedRequestProgress(progRes.data);
-      setCurrentPage('details');
-    } catch (err) {
-      setError(err.message || 'Failed to load request details');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    let active = true;
+    setContextError('');
+    hospitalApi.getContext(userHospitalId, token).then(response => { if (active) setHospital(response.data); })
+      .catch(error => { if (active) { setHospital(null); setContextError(error.message || 'Institution assignment unavailable'); } });
+    return () => { active = false; };
+  }, [token, userHospitalId, revision]);
+
+  // Each section reports its own failure. A rejected request never looks like a successful empty list.
+  useEffect(() => {
+    if (!hospital?.hospitalId) return;
+    let active = true;
+    const load = (key, promise) => {
+      setBusy(previous => ({ ...previous, [key]: true }));
+      setErrors(previous => ({ ...previous, [key]: '' }));
+      promise.then(response => {
+        if (!active) return;
+        setData(previous => ({ ...previous, [key]: response.data }));
+        if (response.pagination) setPagination(previous => ({ ...previous, [key]: response.pagination }));
+      }).catch(error => { if (active) setErrors(previous => ({ ...previous, [key]: error.message || 'Section unavailable' })); })
+        .finally(() => { if (active) setBusy(previous => ({ ...previous, [key]: false })); });
+    };
+    load('dashboard', hospitalApi.getDashboard(hospital.hospitalId, token));
+    load('stock', hospitalApi.getAvailableStock(hospital.hospitalId, token));
+    load('reports', hospitalApi.getReports(hospital.hospitalId, token));
+    return () => { active = false; };
+  }, [hospital?.hospitalId, token, revision]);
+
+  const [debouncedSearch, setDebouncedSearch] = useState(list.filters.search);
+  useEffect(() => { const timer = setTimeout(() => setDebouncedSearch(list.filters.search), 300); return () => clearTimeout(timer); }, [list.filters.search]);
+  useEffect(() => {
+    if (!hospital?.hospitalId) return;
+    let active = true;
+    setBusy(previous => ({ ...previous, requests: true })); setErrors(previous => ({ ...previous, requests: '' }));
+    hospitalApi.getRequests({ ...list.filters, search: debouncedSearch, hospitalId: hospital.hospitalId, limit: list.pageSize, offset: (list.page - 1) * list.pageSize }, token)
+      .then(response => { if (active) { setData(previous => ({ ...previous, requests: response.data })); setPagination(previous => ({ ...previous, requests: response.pagination || { total: response.data.length, limit: list.pageSize, offset: 0 } })); } })
+      .catch(error => { if (active) setErrors(previous => ({ ...previous, requests: error.message })); })
+      .finally(() => { if (active) setBusy(previous => ({ ...previous, requests: false })); });
+    return () => { active = false; };
+  }, [hospital?.hospitalId, token, revision, debouncedSearch, list.filters.status, list.filters.urgency, list.filters.bloodTypeCode, list.filters.componentCode, list.page, list.pageSize]);
+
+  useEffect(() => {
+    if (!hospital?.hospitalId) return;
+    let active = true;
+    const isAppeals = currentPage === 'appeals';
+    if (!isAppeals && currentPage !== 'tracking') return;
+    const key = isAppeals ? 'appeals' : 'deliveries';
+    const state = isAppeals ? appealPage : deliveryPage;
+    const filters = { limit: state.pageSize, offset: (state.page - 1) * state.pageSize };
+    setBusy(previous => ({ ...previous, [key]: true })); setErrors(previous => ({ ...previous, [key]: '' }));
+    const request = isAppeals ? hospitalApi.getEmergencyAppeals(hospital.hospitalId, token, filters) : hospitalApi.getDeliveries(hospital.hospitalId, filters, token);
+    request.then(response => { if (active) { setData(previous => ({ ...previous, [key]: response.data })); setPagination(previous => ({ ...previous, [key]: response.pagination })); } })
+      .catch(error => { if (active) setErrors(previous => ({ ...previous, [key]: error.message })); })
+      .finally(() => { if (active) setBusy(previous => ({ ...previous, [key]: false })); });
+    return () => { active = false; };
+  }, [hospital?.hospitalId, token, revision, currentPage, appealPage.page, appealPage.pageSize, deliveryPage.page, deliveryPage.pageSize]);
+
+  useEffect(() => {
+    if (!selectedId || !['details', 'donors'].includes(currentPage)) return;
+    let active = true;
+    setDetails(null); setProgress(null); setErrors(previous => ({ ...previous, details: '' })); setBusy(previous => ({ ...previous, details: true }));
+    Promise.allSettled([hospitalApi.getRequestById(selectedId, token), hospitalApi.getMatchingSummary(selectedId, null, token)])
+      .then(([detail, summary]) => {
+        if (!active) return;
+        if (detail.status === 'rejected') throw detail.reason;
+        setDetails(detail.value.data);
+        if (summary.status === 'fulfilled') setProgress(summary.value.data);
+        else setActionError(`Matching summary unavailable: ${summary.reason.message}`);
+      })
+      .catch(error => { if (active) setErrors(previous => ({ ...previous, details: error.message })); })
+      .finally(() => { if (active) setBusy(previous => ({ ...previous, details: false })); });
+    return () => { active = false; };
+  }, [currentPage, selectedId, token, revision]);
+
+  const selectRequest = id => { setSelectedId(id); go('details'); };
+  const run = async (work, message) => {
+    setWorking(true); setActionError(''); setSuccess('');
+    try { const result = await work(); setSuccess(message); refresh(); return result || true; }
+    catch (error) { setActionError(error.message || 'Action failed. Please retry.'); return false; }
+    finally { setWorking(false); }
   };
-
-  // Create request handler
-  const handleCreateRequest = async (payload) => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    try {
-      const res = await hospitalApi.createRequest(payload, token);
-      setSuccess(`Blood request #${res.data.id.slice(0, 8)} successfully submitted to network!`);
-      onCloseForm();
-      await loadData();
-      setCurrentPage('requests');
-    } catch (err) {
-      setError(err.message || 'Failed to submit blood request');
-    } finally {
-      setLoading(false);
-    }
+  const create = async payload => {
+    const response = await run(() => hospitalApi.createRequest(payload, token), 'Blood request created.');
+    if (response?.data?.id) { onCloseForm(); selectRequest(response.data.id); }
   };
+  const cancel = (id, reason) => run(() => hospitalApi.cancelRequest(id, reason, token), 'Request cancelled; active reservations released.');
+  const receive = form => run(() => hospitalApi.receiveFulfillment(form.fulfillmentId, form, token), 'Delivery receipt recorded.');
+  const startAppeal = (request = details, item = null) => { if (request) setAppealContext({ request, item }); go('appeals'); };
+  const sectionError = key => errors[key] ? <div role="alert" className="notice error">{errors[key]}<button type="button" onClick={refresh}>Retry</button></div> : null;
 
-  // Cancel request handler
-  const handleCancelRequest = async (id, reason) => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    try {
-      await hospitalApi.cancelRequest(id, reason, token);
-      setSuccess('Blood request cancelled and reserved units returned to stock.');
-      await loadData();
-      if (currentPage === 'details') {
-        handleSelectRequest(id);
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to cancel blood request');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Emergency appeal handlers
-  const handleCreateAppeal = async (payload) => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    try {
-      const res = await hospitalApi.createEmergencyAppeal(payload, token);
-      setSuccess(`Emergency appeal #${res.data.id.slice(0, 8)} initiated for shortage.`);
-      await loadData();
-      setCurrentPage('appeals');
-    } catch (err) {
-      setError(err.message || 'Failed to create emergency appeal');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEscalateAppeal = async (id, targetStage) => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    try {
-      await hospitalApi.escalateEmergencyAppeal(id, targetStage, token);
-      setSuccess(`Emergency appeal escalated to ${targetStage}`);
-      await loadData();
-    } catch (err) {
-      setError(err.message || 'Failed to escalate emergency appeal');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Confirm Fulfillment Receipt
-  const handleReceiveFulfillment = async (formData) => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    try {
-      await hospitalApi.receiveFulfillment(formData.fulfillmentId, formData, token);
-      setSuccess('Blood delivery receipt confirmed successfully! Units issued for hospital care.');
-      await loadData();
-      if (selectedRequestId) {
-        handleSelectRequest(selectedRequestId);
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to confirm fulfillment receipt');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="hospital-portal-container" style={{ minHeight: '80vh', padding: '16px 0 32px 0' }}>
-      {/* Alert Notices */}
-      {error && (
-        <div
-          className="notice error"
-          style={{
-            backgroundColor: '#FEE2E2',
-            border: '1px solid #FCA5A5',
-            color: '#B91C1C',
-            padding: '12px 18px',
-            borderRadius: 12,
-            marginBottom: 20,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-          }}
-        >
-          <AlertTriangle size={18} />
-          <span>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div
-          className="notice success"
-          style={{
-            backgroundColor: '#ECFDF5',
-            border: '1px solid #A7F3D0',
-            color: '#065F46',
-            padding: '12px 18px',
-            borderRadius: 12,
-            marginBottom: 20,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-          }}
-        >
-          <CheckCircle size={18} />
-          <span>{success}</span>
-        </div>
-      )}
-
-      {/* View Router */}
-      {currentPage === 'overview' && (
-        <HospitalOverview
-          dashboardData={dashboardData}
-          loading={loading}
-          onNavigate={(page, filters) => setCurrentPage(page)}
-          onSelectRequest={handleSelectRequest}
-        />
-      )}
-
-      {currentPage === 'requests' && (
-        <BloodRequestsPage
-          requests={requests}
-          loading={loading}
-          onRefresh={loadData}
-          onSelectRequest={handleSelectRequest}
-          onCancelRequest={handleCancelRequest}
-          onNewRequest={() => setCurrentPage('new-request')}
-        />
-      )}
-
-      {currentPage === 'new-request' && (
-        <CreateRequestPage
-          hospitalId={userHospitalId}
-          onSubmit={handleCreateRequest}
-          onCancel={() => {
-            onCloseForm();
-            setCurrentPage('overview');
-          }}
-          loading={loading}
-        />
-      )}
-
-      {currentPage === 'details' && selectedRequestDetails && (
-        <RequestDetailsPage
-          request={selectedRequestDetails}
-          progressSummary={selectedRequestProgress}
-          onBack={() => setCurrentPage('requests')}
-          onCancelRequest={handleCancelRequest}
-          onReceiveFulfillment={handleReceiveFulfillment}
-          onInitiateAppeal={(req) => setCurrentPage('appeals')}
-        />
-      )}
-
-      {currentPage === 'appeals' && (
-        <EmergencyAppealsPage
-          appeals={appeals}
-          requests={requests}
-          hospitalId={userHospitalId}
-          loading={loading}
-          onCreateAppeal={handleCreateAppeal}
-          onEscalateAppeal={handleEscalateAppeal}
-          onRefresh={loadData}
-        />
-      )}
-
-      {currentPage === 'tracking' && (
-        <DeliveriesPage
-          requests={requests}
-          onReceiveFulfillment={handleReceiveFulfillment}
-          onSelectRequest={handleSelectRequest}
-          loading={loading}
-        />
-      )}
-
-      {currentPage === 'donors' && (
-        <FindDonorsPage
-          hospitalDistrict={dashboardData.recentRequests[0]?.hospital_district || 'CO'}
-          onInitiateAppeal={() => setCurrentPage('appeals')}
-        />
-      )}
-
-      {currentPage === 'banks' && (
-        <BloodBanksPage
-          availableStock={availableStock}
-          loading={loading}
-          onRefresh={loadData}
-          onRequestStock={() => setCurrentPage('new-request')}
-        />
-      )}
-
-      {currentPage === 'reports' && (
-        <HospitalReportsPage
-          kpis={dashboardData.kpis}
-          requests={requests}
-        />
-      )}
-
-      {currentPage === 'notifications' && (
-        <HospitalNotificationsPage
-          requests={requests}
-          appeals={appeals}
-          kpis={dashboardData.kpis}
-          onNavigate={(page) => setCurrentPage(page)}
-          onSelectRequest={handleSelectRequest}
-        />
-      )}
-
-      {!['overview', 'requests', 'new-request', 'details', 'emergency', 'tracking', 'donors', 'banks', 'reports', 'notifications'].includes(currentPage) && (
-        <div className="dash-card" style={{ padding: 40, textAlign: 'center' }}>
-          <h2 className="dash-card-title" style={{ fontSize: 18, color: '#1D3043' }}>Section Not Found</h2>
-          <p className="dash-card-subtitle" style={{ fontSize: 13, color: '#7A8B9E', marginTop: 6 }}>
-            The requested hospital section (<code>{currentPage}</code>) is not recognized.
-          </p>
-          <button type="button" className="dash-btn-primary" style={{ marginTop: 18, padding: '0 20px', minHeight: 40 }} onClick={() => setCurrentPage('overview')}>
-            Return to Overview
-          </button>
-        </div>
-      )}
-    </div>
-  );
+  if (contextError) return <div role="alert" className="notice error">{contextError}<button type="button" onClick={refresh}>Retry institution lookup</button></div>;
+  if (!hospital) return <p role="status">Loading your assigned institution…</p>;
+  const requestTabs = [{ id: 'requests', label: 'Requests' }, { id: 'tracking', label: 'Deliveries & tracking' }, { id: 'appeals', label: 'Emergency appeals' }];
+  return <div className="hospital-portal-container">
+    {actionError && <div role="alert" className="notice error">{actionError}</div>}{success && <div role="status" className="notice success">{success}</div>}
+    {REQUEST_VIEWS.includes(currentPage) && <SectionTabs tabs={requestTabs} activeTab={['new-request', 'details'].includes(currentPage) ? 'requests' : currentPage} onChange={go} />}
+    {currentPage === 'overview' && (sectionError('dashboard') || (data.dashboard ? <HospitalOverview dashboardData={data.dashboard} loading={busy.dashboard} onNavigate={go} onSelectRequest={selectRequest} /> : <p>Loading hospital overview…</p>))}
+    {currentPage === 'requests' && <BloodRequestsPage requests={data.requests} loading={busy.requests} error={errors.requests} filters={list.filters} onFiltersChange={filters => setList({ ...list, filters, page: 1 })} pagination={pagination.requests} onPageChange={page => setList({ ...list, page })} onPageSizeChange={pageSize => setList({ ...list, page: 1, pageSize })} onRefresh={refresh} onSelectRequest={selectRequest} onCancelRequest={cancel} onNewRequest={() => go('new-request')} />}
+    {currentPage === 'new-request' && <CreateRequestPage hospitalId={hospital.hospitalId} onSubmit={create} onCancel={() => { onCloseForm(); go('requests'); }} loading={working} />}
+    {currentPage === 'details' && (busy.details ? <p>Loading request details…</p> : sectionError('details') || (details ? <RequestDetailsPage request={details} progressSummary={progress} onBack={() => go('requests')} onCancelRequest={cancel} onReceiveFulfillment={receive} onInitiateAppeal={startAppeal} onFindDonors={() => go('donors')} onMatchingItemChange={async itemId => { try { const result = await hospitalApi.getMatchingSummary(selectedId, itemId, token); setProgress(result.data); } catch (error) { setActionError(error.message); } }} /> : <p>Choose a request from the list.</p>))}
+    {currentPage === 'donors' && <FindDonorsPage token={token} hospital={hospital} selectedRequest={details} onInitiateAppeal={startAppeal} />}
+    {currentPage === 'banks' && (sectionError('stock') || <BloodBanksPage availableStock={data.stock} loading={busy.stock} onRefresh={refresh} onRequestStock={() => go('new-request')} />)}
+    {currentPage === 'reports' && (sectionError('reports') || (data.reports ? <HospitalReportsPage kpis={data.reports} /> : <p>Loading report totals…</p>))}
+    {currentPage === 'appeals' && (sectionError('appeals') || <><EmergencyAppealsPage appeals={data.appeals} requests={appealContext ? [appealContext.request] : data.requests} hospitalId={hospital.hospitalId} initialRequestId={appealContext?.request?.id} initialItemId={appealContext?.item?.itemId} loading={working || busy.appeals} onCreateAppeal={payload => run(() => hospitalApi.createEmergencyAppeal(payload, token), 'Emergency appeal recorded. No invitation delivery is implied.')} onEscalateAppeal={(id, stage) => run(() => hospitalApi.escalateEmergencyAppeal(id, stage, token), 'Appeal escalation recorded.')} onRefresh={refresh} /><Pagination page={appealPage.page} pageSize={appealPage.pageSize} total={pagination.appeals?.total ?? 0} onPageChange={page => setAppealPage({ ...appealPage, page })} onPageSizeChange={pageSize => setAppealPage({ page: 1, pageSize })} /></>)}
+    {currentPage === 'tracking' && (sectionError('deliveries') || <><DeliveriesPage deliveries={data.deliveries} onReceiveFulfillment={receive} onSelectRequest={selectRequest} loading={working || busy.deliveries} /><Pagination page={deliveryPage.page} pageSize={deliveryPage.pageSize} total={pagination.deliveries?.total ?? 0} onPageChange={page => setDeliveryPage({ ...deliveryPage, page })} onPageSizeChange={pageSize => setDeliveryPage({ page: 1, pageSize })} /></>)}
+    {currentPage === 'notifications' && <HospitalNotificationsPage requests={data.dashboard?.recentRequests || []} appeals={data.appeals} onNavigate={go} onSelectRequest={selectRequest} />}
+    {!VIEWS.includes(currentPage) && <div className="dash-card"><h2>Section not found</h2><button type="button" onClick={() => go('overview')}>Return to overview</button></div>}
+  </div>;
 }

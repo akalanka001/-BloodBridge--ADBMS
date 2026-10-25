@@ -20,8 +20,8 @@ export class InventoryController {
   async getUnits(req, res, next) {
     try {
       const filters = inventoryQuerySchema.parse(req.query);
-      const data = await inventoryService.getInventoryUnits(filters, req.user);
-      res.json({ data, count: data.length });
+      const result = await inventoryService.getInventoryUnits(filters, req.user);
+      res.json({ data: result.data, count: result.pagination.total, pagination: result.pagination });
     } catch (err) {
       next(err);
     }
@@ -68,9 +68,10 @@ export class InventoryController {
 
   async getExpiryAlerts(req, res, next) {
     try {
-      const bankId = req.query.bankId || req.query.bloodBankId;
-      const data = await inventoryService.getExpiryAlerts(req.user, bankId);
-      res.json({ data, count: data.length });
+      const filters = inventoryQuerySchema.parse(req.query);
+      const bankId = filters.bankId || filters.bloodBankId;
+      const result = await inventoryService.getExpiryAlerts(req.user, bankId, filters);
+      res.json({ data: result.data, count: result.pagination.total, pagination: result.pagination });
     } catch (err) {
       next(err);
     }
@@ -78,9 +79,10 @@ export class InventoryController {
 
   async getMovements(req, res, next) {
     try {
-      const bankId = req.query.bankId || req.query.bloodBankId;
-      const data = await inventoryService.getInventoryMovements(req.user, bankId);
-      res.json({ data, count: data.length });
+      const filters = inventoryQuerySchema.parse(req.query);
+      const bankId = filters.bankId || filters.bloodBankId;
+      const result = await inventoryService.getInventoryMovements(req.user, bankId, filters);
+      res.json({ data: result.data, count: result.pagination.total, pagination: result.pagination });
     } catch (err) {
       next(err);
     }

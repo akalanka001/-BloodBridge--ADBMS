@@ -28,6 +28,9 @@ import { CampDetailsPage } from '../camps/pages/CampDetailsPage.jsx';
 import { CampRegistrationsPage } from '../camps/pages/CampRegistrationsPage.jsx';
 import { CampAttendancePage } from '../camps/pages/CampAttendancePage.jsx';
 import { NotificationInbox } from '../notifications/pages/NotificationInbox.jsx';
+import { SectionTabs } from '../../components/ui/SectionTabs.jsx';
+import { Pagination } from '../../components/ui/Pagination.jsx';
+import { authApi } from '../../lib/authApi.js';
 
 export function BankPortal({
   token,
@@ -35,8 +38,37 @@ export function BankPortal({
   activeTab = 'overview',
   onTabChange = () => {},
 }) {
-  const userBankId = session?.user?.bloodBankId || 1;
+  const sessionBankId = session?.user?.bloodBankId || null;
+  const [memberships, setMemberships] = useState([]);
+  const [membershipError, setMembershipError] = useState('');
+  const [membershipLoading, setMembershipLoading] = useState(Boolean(token));
+  const [userBankId, setUserBankId] = useState(sessionBankId);
   const [campSubView, setCampSubView] = useState({ page: 'list', data: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) { setMembershipLoading(false); return undefined; }
+    setMembershipLoading(true);
+    authApi.getMemberships(token).then(result => {
+      if (cancelled) return;
+      const membershipList = result.memberships || result.data?.memberships;
+      if (!Array.isArray(membershipList)) {
+        if (!sessionBankId) setUserBankId('');
+        setMemberships([]);
+        return;
+      }
+      const activeMemberships = membershipList.filter(m => m.is_active !== false && m.blood_bank_id);
+      setMemberships(activeMemberships);
+      const sessionMembership = activeMemberships.find(m => String(m.blood_bank_id) === String(sessionBankId));
+      if (sessionMembership) setUserBankId(sessionMembership.blood_bank_id);
+      else if (activeMemberships.length === 1) setUserBankId(activeMemberships[0].blood_bank_id);
+      else setUserBankId('');
+      setMembershipError('');
+    }).catch(err => {
+      if (!cancelled) setMembershipError(err.message || 'Could not load bank assignments');
+    }).finally(() => { if (!cancelled) setMembershipLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, sessionBankId]);
 
   // Data states
   const [dashboardData, setDashboardData] = useState({
@@ -55,6 +87,9 @@ export function BankPortal({
 
   const [selectedComponent, setSelectedComponent] = useState('RBC');
   const [inventoryUnits, setInventoryUnits] = useState([]);
+  const [inventoryFilters, setInventoryFilters] = useState({ componentCode: '', bloodTypeCode: '', releaseStatus: '', inventoryStatus: '', search: '' });
+  const [expiryUrgency, setExpiryUrgency] = useState('');
+  const [movementSearch, setMovementSearch] = useState('');
   const [expiryAlerts, setExpiryAlerts] = useState([]);
   const [movements, setMovements] = useState([]);
   const [donations, setDonations] = useState([]);
@@ -63,6 +98,12 @@ export function BankPortal({
   const [selectedRequestItem, setSelectedRequestItem] = useState(null);
 
   const [loading, setLoading] = useState(false);
+  const [listPages, setListPages] = useState({
+    inventory: { page: 1, pageSize: 10, total: 0 },
+    expiry: { page: 1, pageSize: 10, total: 0 },
+    movements: { page: 1, pageSize: 10, total: 0 },
+    requests: { page: 1, pageSize: 10, total: 0 },
+  });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -80,12 +121,15 @@ export function BankPortal({
   };
 
   // 2. Load Inventory Units
-  const loadUnits = async () => {
-    if (!token) return;
+  const loadUnits = async (page = listPages.inventory.page, filters = inventoryFilters, allocationItem = null) => {
+    if (!token || !userBankId) return;
     setLoading(true);
     try {
-      const res = await bankApi.getInventoryUnits({ bankId: userBankId }, token);
+      const allocationFilters = allocationItem ? { bloodTypeCode: allocationItem.blood_type_code, componentCode: allocationItem.component_code, releaseStatus: 'RELEASED', inventoryStatus: 'IN_STOCK', limit: 100, offset: 0 } : {};
+      const pageSize = allocationItem ? 100 : 10;
+      const res = await bankApi.getInventoryUnits({ bankId: userBankId, limit: pageSize, offset: (page - 1) * pageSize, ...filters, ...allocationFilters }, token);
       setInventoryUnits(res.data || []);
+      setListPages(prev => ({ ...prev, inventory: { page, pageSize, total: res.pagination?.total ?? res.count ?? (res.data || []).length } }));
     } catch (err) {
       setError(err.message || 'Failed to load inventory units');
     } finally {
@@ -94,12 +138,13 @@ export function BankPortal({
   };
 
   // 3. Load Expiry Alerts
-  const loadExpiryAlerts = async () => {
-    if (!token) return;
+  const loadExpiryAlerts = async (page = listPages.expiry.page, urgency = expiryUrgency) => {
+    if (!token || !userBankId) return;
     setLoading(true);
     try {
-      const res = await bankApi.getExpiryAlerts(userBankId, token);
+      const res = await bankApi.getExpiryAlerts(userBankId, token, { limit: 10, offset: (page - 1) * 10, urgency });
       setExpiryAlerts(res.data || []);
+      setListPages(prev => ({ ...prev, expiry: { page, pageSize: 10, total: res.pagination?.total ?? res.count ?? (res.data || []).length } }));
     } catch (err) {
       setError(err.message || 'Failed to load expiry alerts');
     } finally {
@@ -108,12 +153,13 @@ export function BankPortal({
   };
 
   // 4. Load Movements
-  const loadMovements = async () => {
-    if (!token) return;
+  const loadMovements = async (page = listPages.movements.page, search = movementSearch) => {
+    if (!token || !userBankId) return;
     setLoading(true);
     try {
-      const res = await bankApi.getMovements(userBankId, token);
+      const res = await bankApi.getMovements(userBankId, token, { limit: 10, offset: (page - 1) * 10, search });
       setMovements(res.data || []);
+      setListPages(prev => ({ ...prev, movements: { page, pageSize: 10, total: res.pagination?.total ?? res.count ?? (res.data || []).length } }));
     } catch (err) {
       setError(err.message || 'Failed to load inventory movements');
     } finally {
@@ -136,12 +182,13 @@ export function BankPortal({
   };
 
   // 6. Load Incoming Requests
-  const loadRequests = async () => {
-    if (!token) return;
+  const loadRequests = async (page = listPages.requests.page) => {
+    if (!token || !userBankId) return;
     setLoading(true);
     try {
-      const res = await bankApi.getBankRequests(userBankId, token);
+      const res = await bankApi.getBankRequests(userBankId, token, { limit: 10, offset: (page - 1) * 10 });
       setIncomingRequests(res.data || []);
+      setListPages(prev => ({ ...prev, requests: { page, pageSize: 10, total: res.pagination?.total ?? res.count ?? (res.data || []).length } }));
     } catch (err) {
       setError(err.message || 'Failed to load incoming requests');
     } finally {
@@ -165,13 +212,13 @@ export function BankPortal({
 
   // Effect to load data based on active tab
   useEffect(() => {
-    if (!token) return;
+    if (!token || !userBankId || membershipLoading) return;
     setError('');
     setSuccess('');
 
     if (activeTab === 'overview') {
       loadDashboard(selectedComponent);
-    } else if (activeTab === 'inventory') {
+    } else if (['inventory', 'stock'].includes(activeTab)) {
       loadUnits();
     } else if (activeTab === 'expiry') {
       loadExpiryAlerts();
@@ -181,14 +228,28 @@ export function BankPortal({
       loadDonations();
     } else if (activeTab === 'requests') {
       loadRequests();
-      loadUnits();
     } else if (activeTab === 'reservations') {
-      loadUnits();
-      loadRequests();
+      loadUnits(1, {}, selectedRequestItem);
     } else if (activeTab === 'camps') {
       loadCamps();
     }
-  }, [activeTab, token, userBankId]);
+  }, [activeTab, token, userBankId, membershipLoading, selectedRequestItem]);
+
+  const handleInventoryFilters = (filters) => {
+    setInventoryFilters(filters);
+    setListPages(prev => ({ ...prev, inventory: { ...prev.inventory, page: 1 } }));
+    loadUnits(1, filters);
+  };
+  const handleExpiryFilter = (urgency) => {
+    setExpiryUrgency(urgency);
+    setListPages(prev => ({ ...prev, expiry: { ...prev.expiry, page: 1 } }));
+    loadExpiryAlerts(1, urgency);
+  };
+  const handleMovementSearch = (search) => {
+    setMovementSearch(search);
+    setListPages(prev => ({ ...prev, movements: { ...prev.movements, page: 1 } }));
+    loadMovements(1, search);
+  };
 
   // Handle component selection change in stock grid
   const handleSelectComponent = (compCode) => {
@@ -245,6 +306,13 @@ export function BankPortal({
   // Render view depending on activeTab
   return (
     <div className="bank-portal-root">
+      {memberships.length > 1 && <label className="bb-bank-scope">Working at <select aria-label="Active blood bank" value={userBankId || ''} onChange={event => setUserBankId(event.target.value)}>{!userBankId && <option value="">Choose an assigned blood bank</option>}{memberships.map(m => <option key={m.id} value={m.blood_bank_id}>{m.blood_bank_name}</option>)}</select></label>}
+      {!membershipLoading && !userBankId && <div className="notice error" role="alert">{membershipError || 'Choose an active blood bank assignment to continue.'}</div>}
+      {membershipError && userBankId && <p className="notice error" role="alert">Assignment details could not be refreshed: {membershipError}</p>}
+      {['inventory', 'stock', 'processing', 'expiry', 'movements'].includes(activeTab) && <SectionTabs label="Inventory sections" tabs={[{id:'inventory',label:'Blood units'},{id:'processing',label:'Component processing'},{id:'expiry',label:'Expiry watch'},{id:'movements',label:'Activity'}]} activeTab={activeTab === 'stock' ? 'inventory' : activeTab} onChange={onTabChange} />}
+      {['requests', 'transfers', 'reservations'].includes(activeTab) && <SectionTabs label="Requests and transfers" tabs={[{id:'requests',label:'Hospital requests'},{id:'transfers',label:'Transfers'}]} activeTab={activeTab === 'reservations' ? 'requests' : activeTab} onChange={onTabChange} />}
+      {membershipLoading && <p role="status">Loading assigned blood banks…</p>}
+      {!membershipLoading && !userBankId ? null : <>
       {/* Notifications / Alerts */}
       {error && (
         <div
@@ -305,9 +373,16 @@ export function BankPortal({
         <InventoryPage
           units={inventoryUnits}
           loading={loading}
-          onRefresh={loadUnits}
+          onRefresh={() => loadUnits()}
           onReleaseUnit={handleReleaseUnit}
+          pagination={listPages.inventory}
+          onPageChange={page => loadUnits(page)}
+          onFiltersChange={handleInventoryFilters}
+          filters={inventoryFilters}
         />
+      )}
+      {activeTab === 'stock' && (
+        <InventoryPage units={inventoryUnits} loading={loading} onRefresh={() => loadUnits()} onReleaseUnit={handleReleaseUnit} pagination={listPages.inventory} onPageChange={page => loadUnits(page)} onFiltersChange={handleInventoryFilters} filters={inventoryFilters} />
       )}
 
       {/* 3. Donor Intake */}
@@ -371,7 +446,7 @@ export function BankPortal({
 
             <button
               type="button"
-              onClick={loadRequests}
+              onClick={() => loadRequests()}
               disabled={loading}
               style={{
                 display: 'inline-flex',
@@ -395,7 +470,7 @@ export function BankPortal({
           <div className="dash-card" style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E8ECF2', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #E8ECF2' }}>
               <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1D3043', margin: 0 }}>
-                Active Hospital Requests ({incomingRequests.length})
+                Active Hospital Requests ({listPages.requests.total})
               </h3>
             </div>
 
@@ -512,19 +587,20 @@ export function BankPortal({
               </table>
             </div>
           </div>
+          <Pagination page={listPages.requests.page} pageSize={listPages.requests.pageSize} total={listPages.requests.total} onPageChange={loadRequests} loading={loading} />
         </div>
       )}
 
       {/* 9. Reservations */}
       {activeTab === 'reservations' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <StockReservationForm
+          {selectedRequestItem ? <StockReservationForm
             requestItem={selectedRequestItem}
             availableUnits={inventoryUnits}
             onSubmit={handleReserveUnit}
             onCancel={() => setSelectedRequestItem(null)}
             loading={loading}
-          />
+          /> : <div className="bb-empty">Choose an open request and its component line to allocate stock. <button type="button" className="btn outline" onClick={() => onTabChange('requests')}>View hospital requests</button></div>}
         </div>
       )}
 
@@ -541,7 +617,11 @@ export function BankPortal({
         <ExpiryAlertsPage
           alerts={expiryAlerts}
           loading={loading}
-          onRefresh={loadExpiryAlerts}
+          onRefresh={() => loadExpiryAlerts()}
+          pagination={listPages.expiry}
+          onPageChange={page => loadExpiryAlerts(page)}
+          onFilterChange={handleExpiryFilter}
+          selectedFilter={expiryUrgency || 'ALL'}
         />
       )}
 
@@ -597,7 +677,10 @@ export function BankPortal({
         <InventoryMovementsPage
           movements={movements}
           loading={loading}
-          onRefresh={loadMovements}
+          onRefresh={() => loadMovements()}
+          pagination={listPages.movements}
+          onPageChange={(page, search) => loadMovements(page, search)}
+          onSearchChange={handleMovementSearch}
         />
       )}
 
@@ -606,7 +689,7 @@ export function BankPortal({
         <NotificationInbox user={session?.user} />
       )}
 
-      {!['overview', 'intake', 'donations', 'stock', 'expiry', 'requests', 'transfers', 'camps', 'movements', 'notifications'].includes(activeTab) && (
+      {!['overview', 'intake', 'visits', 'assessments', 'donations', 'inventory', 'stock', 'processing', 'expiry', 'requests', 'reservations', 'transfers', 'camps', 'movements', 'notifications', 'account'].includes(activeTab) && (
         <div className="dash-card" style={{ padding: 40, textAlign: 'center' }}>
           <h2 className="dash-card-title" style={{ fontSize: 18, color: '#1D3043' }}>Section Not Found</h2>
           <p className="dash-card-subtitle" style={{ fontSize: 13, color: '#7A8B9E', marginTop: 6 }}>
@@ -617,6 +700,7 @@ export function BankPortal({
           </button>
         </div>
       )}
+      </>}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react';
 import { campsApi } from '../api/campsApi.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function CampAttendancePage({ campId, onBack }) {
   const [camp, setCamp] = useState(null);
@@ -19,6 +20,11 @@ export function CampAttendancePage({ campId, onBack }) {
   const [success, setSuccess] = useState(null);
   const [search, setSearch] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => { const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300); return () => clearTimeout(timer); }, [search]);
 
   const fetchCampData = async () => {
     setLoading(true);
@@ -26,10 +32,11 @@ export function CampAttendancePage({ campId, onBack }) {
     try {
       const [campRes, regRes] = await Promise.all([
         campsApi.getCamp(campId),
-        campsApi.listRegistrations(campId),
+        campsApi.listRegistrations(campId, { search: debouncedSearch, limit: pageSize, offset: (page - 1) * pageSize }),
       ]);
       setCamp(campRes.data);
       setRegistrations(regRes.data || []);
+      setTotal(regRes.pagination?.total || 0);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to load attendance list');
     } finally {
@@ -39,7 +46,7 @@ export function CampAttendancePage({ campId, onBack }) {
 
   useEffect(() => {
     if (campId) fetchCampData();
-  }, [campId]);
+  }, [campId, debouncedSearch, page, pageSize]);
 
   const handleUpdateStatus = async (donorId, status) => {
     setActionLoadingId(donorId);
@@ -49,7 +56,7 @@ export function CampAttendancePage({ campId, onBack }) {
       await campsApi.checkInDonor(campId, {
         donorId,
         status,
-        notes: `Recorded at camp reception on ${new Date().toLocaleTimeString('en-LK')}`,
+        notes: undefined,
       });
       setSuccess(`Donor attendance status updated to ${status}. Note: Attendance check-in is not a completed donation.`);
       await fetchCampData();
@@ -60,12 +67,7 @@ export function CampAttendancePage({ campId, onBack }) {
     }
   };
 
-  const filtered = registrations.filter((r) =>
-    !search ||
-    r.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-    r.phone?.includes(search) ||
-    r.blood_type_code?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = registrations;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -130,9 +132,9 @@ export function CampAttendancePage({ campId, onBack }) {
         <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
           Attended:{' '}
           <strong style={{ color: '#059669' }}>
-            {registrations.filter((r) => r.registration_status === 'ATTENDED').length}
+            {camp?.attended_count ?? 'Unavailable'}
           </strong>{' '}
-          / Total Registered: <strong>{registrations.length}</strong>
+          / Active registrations: <strong>{camp?.registered_count ?? 'Unavailable'}</strong>
         </div>
       </div>
 
@@ -242,6 +244,7 @@ export function CampAttendancePage({ campId, onBack }) {
           </tbody>
         </table>
       </div>
+      <Pagination page={page} pageSize={pageSize} total={total} loading={loading} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} />
     </div>
   );
 }

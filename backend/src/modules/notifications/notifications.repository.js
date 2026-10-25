@@ -13,17 +13,36 @@ function maskDestination(dest) {
 }
 
 export class NotificationsRepository {
-  async getUserNotifications(userId, limit = 50) {
+  async getUserNotifications(userId, filters = {}) {
+    const params = [userId];
+    const conditions = ['n.recipient_user_id = $1'];
+    if (filters.category) {
+      params.push(filters.category);
+      conditions.push(filters.category === 'EMERGENCY' ? `(n.category = $${params.length} OR n.priority = 'EMERGENCY')` : `n.category = $${params.length}`);
+    }
+    if (filters.status) { params.push(filters.status); conditions.push(`n.status = $${params.length}`); }
+    if (filters.search) {
+      params.push(`%${filters.search}%`);
+      conditions.push(`(n.title ILIKE $${params.length} OR n.message ILIKE $${params.length})`);
+    }
+    const where = conditions.join(' AND ');
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
+    const { rows: totalRows } = await pool.query(
+      `SELECT count(*)::int AS total FROM notifications n WHERE ${where}`,
+      params,
+    );
+    const total = totalRows[0]?.total || 0;
     const { rows } = await pool.query(
       `SELECT n.id, n.recipient_user_id, n.camp_id, c.title AS camp_title,
               n.request_id, n.title, n.message, n.channel, n.priority,
               n.category, n.status, n.created_at
        FROM notifications n
        LEFT JOIN donation_camps c ON c.id = n.camp_id
-       WHERE n.recipient_user_id = $1
+       WHERE ${where}
        ORDER BY n.created_at DESC
-       LIMIT $2`,
-      [userId, limit],
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
     );
 
     const { rows: countRows } = await pool.query(
@@ -35,7 +54,9 @@ export class NotificationsRepository {
 
     return {
       notifications: rows,
+      total,
       unreadCount: countRows[0]?.unread_count || 0,
+      pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) },
     };
   }
 
@@ -124,41 +145,48 @@ export class NotificationsRepository {
     });
   }
 
-  async getDeliveryStatusLog(limit = 100, institutionScope = null) {
+  async getDeliveryStatusLog(filters = {}, institutionScope = null) {
     const params = [];
-    let idx = 1;
-    let whereClause = '';
+    const conditions = [];
 
     if (institutionScope?.bloodBankId) {
-      whereClause = `WHERE (c.blood_bank_id = $${idx++} OR nd.channel = 'IN_APP')`;
       params.push(institutionScope.bloodBankId);
+      conditions.push(`(c.blood_bank_id = $${params.length} OR nd.channel = 'IN_APP')`);
     } else if (institutionScope?.hospitalId) {
-      whereClause = `WHERE (br.hospital_id = $${idx++} OR nd.channel = 'IN_APP')`;
       params.push(institutionScope.hospitalId);
+      conditions.push(`(br.hospital_id = $${params.length} OR nd.channel = 'IN_APP')`);
     }
 
-    params.push(limit);
+    if (filters.channel) { params.push(filters.channel); conditions.push(`nd.channel = $${params.length}`); }
+    if (filters.status) { params.push(filters.status); conditions.push(`nd.status = $${params.length}`); }
+    if (filters.search) { params.push(`%${filters.search}%`); conditions.push(`(u.full_name ILIKE $${params.length} OR nd.subject ILIKE $${params.length} OR nd.error_message ILIKE $${params.length})`); }
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limit = filters.limit || 10;
+    const offset = filters.offset || 0;
+    const joins = `FROM notification_deliveries nd
+       LEFT JOIN notifications n ON n.id = nd.notification_id
+       LEFT JOIN donation_camps c ON c.id = n.camp_id
+       LEFT JOIN blood_requests br ON br.id = n.request_id
+       LEFT JOIN users u ON u.id = nd.recipient_user_id`;
+    const { rows: countRows } = await pool.query(`SELECT count(*)::int AS total ${joins} ${whereClause}`, params);
+    const total = countRows[0]?.total || 0;
 
     const { rows } = await pool.query(
       `SELECT nd.id, nd.notification_id, nd.recipient_user_id, u.full_name AS recipient_name,
               nd.channel, nd.destination, nd.subject, nd.status, nd.attempts,
               nd.max_attempts, nd.last_attempt_at, nd.error_message, nd.provider_message_id,
               nd.created_at, nd.updated_at
-       FROM notification_deliveries nd
-       LEFT JOIN notifications n ON n.id = nd.notification_id
-       LEFT JOIN donation_camps c ON c.id = n.camp_id
-       LEFT JOIN blood_requests br ON br.id = n.request_id
-       LEFT JOIN users u ON u.id = nd.recipient_user_id
+       ${joins}
        ${whereClause}
        ORDER BY nd.created_at DESC
-       LIMIT $${idx}`,
-      params,
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
     );
 
-    return rows.map((r) => ({
+    return { data: rows.map((r) => ({
       ...r,
       destination: maskDestination(r.destination),
-    }));
+    })), pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 }
 

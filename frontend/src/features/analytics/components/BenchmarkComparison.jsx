@@ -16,10 +16,11 @@ export function BenchmarkComparison({
   };
 
   const currentResult = activeExperiment;
-  const baselineMs = currentResult?.baseline?.executionTimeMs ?? 0.8;
-  const optimizedMs = currentResult?.optimized?.executionTimeMs ?? 0.12;
-  const improvement = currentResult?.improvementPercentage ?? 84;
-  const maxMs = Math.max(baselineMs, optimizedMs, 0.01);
+  const baselineMs = currentResult?.baseline?.executionTimeMs ?? null;
+  const optimizedMs = currentResult?.optimized?.executionTimeMs ?? null;
+  const improvement = currentResult?.improvementPercentage ?? null;
+  const hasResult = Number.isFinite(baselineMs) && Number.isFinite(optimizedMs);
+  const maxMs = Math.max(baselineMs || 0, optimizedMs || 0, 0.01);
   const baselineBarPct = Math.round((baselineMs / maxMs) * 100);
   const optimizedBarPct = Math.max(Math.round((optimizedMs / maxMs) * 100), 5);
 
@@ -47,14 +48,14 @@ export function BenchmarkComparison({
             className="dash-btn-primary"
             style={{ minHeight: 28, padding: '0 10px', fontSize: 11, gap: 4 }}
             onClick={handleRun}
-            disabled={running}
+            disabled={running || templates.length === 0}
           >
             <Play size={12} /> {running ? 'Testing…' : 'Run'}
           </button>
         </div>
       </div>
 
-      <div style={{ marginTop: 12 }}>
+      {!hasResult ? <p role="status">No benchmark result yet. Run an available experiment to measure its query plans.</p> : <div style={{ marginTop: 12 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: '#1D3043', display: 'block', marginBottom: 12 }}>
           {currentResult?.experimentName || 'Donor matching query (Composite Index vs Seq Scan)'}
           <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B', marginLeft: 8 }}>
@@ -123,7 +124,7 @@ export function BenchmarkComparison({
               fontWeight: 700,
             }}
           >
-            <Zap size={13} /> ~{improvement}% FASTER (MEASURED)
+            <Zap size={13} /> {improvement == null ? 'Change unavailable' : `${improvement}% measured change`}
           </div>
           <small style={{ color: '#64748B', fontSize: 11 }}>
             Strategy: {currentResult?.indexStrategy || 'idx_donors_available_geo'}
@@ -169,7 +170,7 @@ export function BenchmarkComparison({
             </pre>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -1,370 +1,85 @@
-import React, { useState } from 'react';
-import {
-  Heart,
-  LayoutDashboard,
-  Calendar,
-  Clock,
-  MapPin,
-  Bell,
-  Search,
-  ShieldCheck,
-  FileText,
-  Users,
-  Building2,
-  TrendingUp,
-  Activity,
-  Database,
-  ArrowRight,
-  LogOut,
-  ChevronDown,
-  Menu,
-  X,
-  Droplet,
-  Droplets,
-  Hospital,
-  Tent,
-  User,
-  Sliders,
-  Settings,
-  Siren,
-  Truck,
-  PlusCircle,
-  ClipboardCheck,
-  Stethoscope,
-  HeartPulse,
-  FlaskConical,
-  PackageCheck,
-  CalendarDays,
-  History,
-  CalendarClock,
-  TicketCheck,
-  ClipboardList,
-  BadgeCheck,
-  MailCheck,
-  Image as ImageIcon,
-  UserCheck,
-  Package,
-} from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Heart, LayoutDashboard, CalendarClock, MapPin, Bell, FileText, Users, Building2, TrendingUp, Menu, X, Droplets, UserRound, Settings, ArrowLeft, ChevronDown, LogOut } from 'lucide-react';
 import { navigate } from '../../lib/navigation.js';
+import { PORTAL_NAV, getPrimaryTab } from '../../lib/portalNavigation.js';
+import { api } from '../../lib/api.js';
+import { authStorage } from '../../lib/authStorage.js';
+import { useFocusTrap } from '../../hooks/useFocusTrap.js';
+import { NotificationDrawer } from './NotificationDrawer.jsx';
 
-export function DashboardLayout({
-  role = 'DONOR',
-  user = null,
-  activeTab = 'overview',
-  onTabChange = () => {},
-  onLogout = () => {},
-  headerTitle = '',
-  headerSubtitle = '',
-  headerAction = null,
-  children,
-}) {
+const icons = { overview: LayoutDashboard, donations: Heart, calendar: CalendarClock, camps: MapPin, account: UserRound, requests: FileText, people: Users, institutions: Building2, reports: TrendingUp, inventory: Droplets, system: Settings };
+
+export function DashboardLayout({ role = 'DONOR', user, activeTab = 'overview', onTabChange = () => {}, onLogout = () => {}, headerTitle = '', headerSubtitle = '', headerAction, children }) {
+  const config = PORTAL_NAV[role] || PORTAL_NAV.DONOR;
+  const primary = getPrimaryTab(role, activeTab);
+  const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 980px)')?.matches || false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [unread, setUnread] = useState(null);
+  const sidebar = useRef(null);
+  const account = useRef(null);
+  const closeSidebar = useCallback(() => setMobileMenuOpen(false), []);
+  const closeInbox = useCallback(() => setInboxOpen(false), []);
+  useFocusTrap(mobile && mobileMenuOpen, sidebar, closeSidebar);
+  useEffect(() => {
+    const media = window.matchMedia?.('(max-width: 980px)');
+    if (!media) return;
+    const update = () => { setMobile(media.matches); if (!media.matches) setMobileMenuOpen(false); };
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    const close = event => { if (event.key === 'Escape' || (event.type === 'pointerdown' && !account.current?.contains(event.target))) setAccountOpen(false); };
+    document.addEventListener('keydown', close); document.addEventListener('pointerdown', close);
+    return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close); };
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    api('/notifications/me?limit=1').then(result => { if (!cancelled) setUnread(result.data.unreadCount); }).catch(() => { if (!cancelled) setUnread(null); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+  const go = tab => { onTabChange(tab); setMobileMenuOpen(false); setAccountOpen(false); };
+  const name = user?.fullName || user?.full_name || 'Account';
+  const initials = name.split(/\s+/).slice(0, 2).map(part => part[0]).join('');
 
-  const getInitials = (name) => {
-    if (!name) return 'BB';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  };
-
-  const roleConfigs = {
-    DONOR: {
-      tag: 'DONOR PORTAL',
-      menu: [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'donations', label: 'My Donations', icon: Heart },
-        { id: 'appointments', label: 'Appointments', icon: CalendarClock },
-        { id: 'banks', label: 'Find Blood Banks', icon: Building2 },
-        { id: 'camps', label: 'Find Camps', icon: MapPin },
-        { id: 'registrations', label: 'My Registrations', icon: TicketCheck },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'profile', label: 'My Profile', icon: User },
-        { id: 'preferences', label: 'Privacy & Preferences', icon: Sliders },
-        { id: 'settings', label: 'Account Settings', icon: Settings },
-      ],
-      defaultAction: { label: 'Find a blood bank', onClick: () => onTabChange('banks') },
-    },
-    HOSPITAL_STAFF: {
-      tag: 'HOSPITAL PORTAL',
-      menu: [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'requests', label: 'Blood requests', icon: FileText },
-        { id: 'new-request', label: 'New request', icon: PlusCircle },
-        { id: 'donors', label: 'Find donors', icon: Search },
-        { id: 'banks', label: 'Blood banks', icon: Building2 },
-        { id: 'emergency', label: 'Emergency appeals', icon: Siren },
-        { id: 'tracking', label: 'Request tracking', icon: Truck },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'reports', label: 'Reports', icon: TrendingUp },
-      ],
-      defaultAction: { label: 'New blood request', onClick: () => onTabChange('new-request') },
-    },
-    BANK_STAFF: {
-      tag: 'BLOOD BANK PORTAL',
-      menu: [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'inventory', label: 'Blood inventory', icon: Droplets },
-        { id: 'intake', label: 'Donor Intake', icon: Users },
-        { id: 'visits', label: 'Donor Visits', icon: ClipboardCheck },
-        { id: 'assessments', label: 'Assessments', icon: Stethoscope },
-        { id: 'donations', label: 'Donations', icon: HeartPulse },
-        { id: 'processing', label: 'Component Processing', icon: FlaskConical },
-        { id: 'requests', label: 'Hospital Requests', icon: FileText },
-        { id: 'reservations', label: 'Reservations', icon: PackageCheck },
-        { id: 'transfers', label: 'Inter-Bank Transfers', icon: Truck },
-        { id: 'expiry', label: 'Expiry alerts', icon: Clock },
-        { id: 'camps', label: 'Donation Camps', icon: CalendarDays },
-        { id: 'movements', label: 'Inventory Activity', icon: History },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-      ],
-      defaultAction: { label: 'Record donation', onClick: () => onTabChange('intake') },
-    },
-    ADMIN: {
-      tag: 'ADMINISTRATION',
-      menu: [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-        { id: 'demand', label: 'Blood Demand', icon: Droplets },
-        { id: 'stock', label: 'Stock Reports', icon: Package },
-        { id: 'camps', label: 'Camp Analytics', icon: CalendarDays },
-        { id: 'transfers', label: 'Transfers Report', icon: Truck },
-        { id: 'benchmarks', label: 'Performance Lab', icon: Database },
-        { id: 'etl', label: 'ETL Pipeline', icon: Activity },
-        { id: 'data-quality', label: 'Data Quality', icon: ShieldCheck },
-        { id: 'users', label: 'Users and roles', icon: Users },
-        { id: 'institutions', label: 'Institutions', icon: Building2 },
-        { id: 'camp-oversight', label: 'Camp Oversight', icon: ClipboardList },
-        { id: 'camp-approvals', label: 'Camp Approvals', icon: BadgeCheck },
-        { id: 'notification-monitoring', label: 'Notification Monitoring', icon: MailCheck },
-      ],
-      defaultAction: null,
-    },
-  };
-
-  const config = roleConfigs[role] || roleConfigs.DONOR;
-  const userInitials = getInitials(user?.fullName || user?.full_name);
-
-  return (
-    <div className="dash-container">
-      {/* Sidebar Overlay for Mobile */}
-      {mobileMenuOpen && (
-        <div
-          className="dash-sidebar-overlay"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Dark Navy Sidebar */}
-      <aside className={`dash-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="dash-sidebar-header">
-          <div className="dash-brand-icon">
-            <Heart size={20} fill="#ffffff" stroke="#ffffff" />
-          </div>
-          <span className="dash-brand-text">BloodBridge</span>
-          <button
-            type="button"
-            className="dash-close-mobile"
-            onClick={() => setMobileMenuOpen(false)}
-            aria-label="Close sidebar"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="dash-role-tag">{config.tag}</div>
-
-        <nav className="dash-nav">
-          {config.menu.map((item) => {
-            const Icon = item.icon;
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`dash-nav-btn ${active ? 'active' : ''}`}
-                onClick={() => {
-                  onTabChange(item.id);
-                  setMobileMenuOpen(false);
-                }}
-              >
-                {active && <span className="dash-active-indicator" />}
-                <Icon size={18} className="dash-nav-icon" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Secure Network footer card in sidebar */}
-        <div className="dash-secure-card">
-          <div className="dash-secure-top">
-            <ShieldCheck size={18} className="dash-secure-icon" />
-            <span className="dash-secure-title">Secure network</span>
-          </div>
-          <p className="dash-secure-text">Role-based access and verified updates</p>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="dash-main-area">
-        {/* Topbar */}
-        <header className="dash-topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              type="button"
-              className="dash-menu-toggle"
-              onClick={() => setMobileMenuOpen((o) => !o)}
-              aria-label="Toggle navigation"
-            >
-              <Menu size={22} />
-            </button>
-            <div className="dash-search-wrap">
-              <Search size={16} className="dash-search-icon" />
-              <input
-                type="text"
-                placeholder="Search the platform..."
-                className="dash-search-input"
-              />
-            </div>
-          </div>
-
-          <div className="dash-topbar-actions">
-            {/* Dashboard Navigation Breadcrumb/Link */}
-            <a
-              href={`#${role.toLowerCase().replace('_staff', '')}`}
-              onClick={(e) => {
-                e.preventDefault();
-                onTabChange('overview');
-              }}
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: '#1D3043',
-                textDecoration: 'none',
-                padding: '6px 12px',
-                borderRadius: 8,
-                background: '#F6F8FB',
-                cursor: 'pointer',
-              }}
-            >
-              Dashboard
-            </a>
-
-            {/* Notification Bell */}
-            <button
-              type="button"
-              className="dash-icon-btn"
-              title="Notifications"
-              aria-label="Notifications"
-            >
-              <Bell size={18} />
-              <span className="dash-badge-dot" />
-            </button>
-
-            {/* User Info & Badge */}
-            {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#1D3043' }}>
-                  {user.fullName || user.full_name}
-                </span>
-                <span className="dash-pill-badge red" style={{ fontSize: 10, padding: '2px 8px' }}>
-                  {role}
-                </span>
-              </div>
-            )}
-
-            {/* Direct Log out action button */}
-            <button
-              type="button"
-              className="reg-btn-outline"
-              style={{
-                minHeight: 36,
-                padding: '0 14px',
-                fontSize: 12,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-              onClick={onLogout}
-            >
-              <LogOut size={14} />
-              <span>Log out</span>
-            </button>
-
-            {/* User Dropdown */}
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className="dash-user-trigger"
-                onClick={() => setUserDropdownOpen((o) => !o)}
-                aria-label="User profile menu"
-              >
-                <div className="dash-avatar">{userInitials}</div>
-                <ChevronDown size={14} className="dash-chevron" />
-              </button>
-
-              {userDropdownOpen && (
-                <div className="dash-user-dropdown">
-                  <div className="dash-dropdown-header">
-                    <strong>{user?.fullName || user?.full_name || 'Logged User'}</strong>
-                    <small>{user?.email}</small>
-                  </div>
-                  <div className="dash-dropdown-divider" />
-                  <button
-                    type="button"
-                    className="dash-dropdown-item"
-                    onClick={() => {
-                      setUserDropdownOpen(false);
-                      navigate('home');
-                    }}
-                  >
-                    Public Home
-                  </button>
-                  <button
-                    type="button"
-                    className="dash-dropdown-item text-danger"
-                    onClick={() => {
-                      setUserDropdownOpen(false);
-                      onLogout();
-                    }}
-                  >
-                    <LogOut size={14} /> Log out
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Dashboard Content */}
-        <main className="dash-content-body">
-          {/* Header row */}
-          <div className="dash-page-header">
-            <div>
-              <h1 className="dash-title">{headerTitle}</h1>
-              {headerSubtitle && <p className="dash-subtitle">{headerSubtitle}</p>}
-            </div>
-
-            {headerAction ? (
-              headerAction
-            ) : config.defaultAction ? (
-              <button
-                type="button"
-                className="dash-btn-primary"
-                onClick={config.defaultAction.onClick}
-              >
-                <span>{config.defaultAction.label}</span>
-                <ArrowRight size={16} />
-              </button>
-            ) : null}
-          </div>
-
-          {/* Children views */}
-          {children}
-        </main>
+  return <div className="portal dash-container bb-shell">
+    <a className="bb-skip-link" href="#portal-content">Skip to content</a>
+    {mobile && mobileMenuOpen && <div className="bb-sidebar-shade" aria-hidden="true" onClick={closeSidebar} />}
+    <aside id="portal-navigation" ref={sidebar} className={`portal-sidebar dash-sidebar ${mobileMenuOpen ? 'open' : ''}`} aria-label="Portal sidebar" {...(mobile && !mobileMenuOpen ? { inert: '' } : {})}>
+      <div className="sidebar-top dash-sidebar-header">
+        <a href={`#${config.page}`} className="brand" onClick={event => { event.preventDefault(); go('overview'); }}>
+          <span className="mark"><Heart size={19} fill="currentColor" /></span>
+          <span>Blood<span className="bb-brand-accent">Bridge</span><small>CONNECTING COMMUNITIES</small></span>
+        </a>
+        {mobile && <button type="button" className="bb-icon-button" aria-label="Close navigation" onClick={closeSidebar}><X size={20} /></button>}
       </div>
+      <div className="dash-role-tag">{config.title}</div>
+      <nav className="sidebar-scroll dash-nav" aria-label={`${config.title} navigation`}>
+        {config.menu.map(([id, label, icon]) => { const Icon = icons[icon]; return <button key={id} type="button" className={`side-item dash-nav-btn ${primary === id ? 'active' : ''}`} aria-current={primary === id ? 'page' : undefined} onClick={() => go(id)}><Icon size={17} /><span>{label}</span></button>; })}
+      </nav>
+      <div className="side-bottom"><button type="button" onClick={() => navigate('home')}><ArrowLeft size={16} />Public website</button><small>University prototype</small></div>
+    </aside>
+    <div className="portal-area dash-main-area">
+      <header className="portal-topbar dash-topbar">
+        <div className="bb-workspace-heading">
+          {mobile && <button type="button" className="bb-icon-button" aria-label="Toggle navigation" aria-expanded={mobileMenuOpen} aria-controls="portal-navigation" onClick={() => setMobileMenuOpen(value => !value)}><Menu size={21} /></button>}
+          <div><span className="bb-breadcrumb">BloodBridge / {config.title}</span><strong>{config.menu.find(([id]) => id === primary)?.[1] || (activeTab === 'notifications' ? 'Donation invitations' : 'My account')}</strong></div>
+        </div>
+        <div className="bb-topbar-actions">
+          <button type="button" className="bb-icon-button bb-notification-button" aria-label={`Notifications${unread != null ? `, ${unread} unread` : ''}`} onClick={() => setInboxOpen(true)}><Bell size={19} />{unread > 0 && <span className="bb-unread-dot">{unread > 99 ? '99+' : unread}</span>}</button>
+          <div ref={account} className="bb-account-menu">
+            <button type="button" className="bb-account-trigger" aria-expanded={accountOpen} aria-controls="account-actions" onClick={() => setAccountOpen(value => !value)}><span className="bb-avatar">{initials}</span><span className="bb-account-name">{name}<small>{config.title}</small></span><ChevronDown size={15} /></button>
+            {accountOpen && <div id="account-actions" className="bb-account-popover"><strong>{name}</strong><button type="button" onClick={() => go('account')}><UserRound size={16} />My Account</button><button type="button" onClick={() => navigate('home')}><ArrowLeft size={16} />Public website</button><button type="button" onClick={onLogout}><LogOut size={16} />Log out</button></div>}
+          </div>
+        </div>
+      </header>
+      <main id="portal-content" tabIndex={-1} className="portal-content dash-content-body">
+        {headerTitle && <div className="bb-page-heading"><div><h1>{headerTitle}</h1>{headerSubtitle && <p>{headerSubtitle}</p>}</div>{headerAction}</div>}
+        {children}
+        <footer className="portal-footer"><span>BloodBridge · {config.title}</span><span>Synthetic demonstration · Not for clinical decisions</span></footer>
+      </main>
     </div>
-  );
+    <NotificationDrawer open={inboxOpen} onClose={closeInbox} token={authStorage.getToken()} onUnreadChange={setUnread} onViewInvitations={role === 'DONOR' ? () => { closeInbox(); go('notifications'); } : null} />
+  </div>;
 }

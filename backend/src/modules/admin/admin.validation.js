@@ -24,6 +24,8 @@ export const updateUserStatusSchema = z.object({
 });
 
 export const staffMembershipFilterSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).default(0),
   userId: z.string().uuid().optional(),
   role: z.enum(['HOSPITAL_STAFF', 'BANK_STAFF']).optional(),
   hospitalId: z.coerce.number().int().positive().optional(),
@@ -72,7 +74,21 @@ export const institutionFilterSchema = z.object({
     return undefined;
   }),
   search: z.string().trim().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).default(0),
 });
+
+export const oversightFilterSchema = z.object({
+  search: z.string().trim().max(100).default(''),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const oversightDatasetSchema = z.enum([
+  'requests', 'inventory', 'reservations', 'transfers', 'fulfillments',
+  'donations', 'visits', 'movements', 'appeals',
+  'request-items', 'matches', 'registrations', 'organizers', 'assessments', 'invitations',
+]);
 
 export const createInstitutionSchema = z.object({
   type: z.enum(['HOSPITAL', 'BLOOD_BANK']),
@@ -127,4 +143,6 @@ export const rejectClaimSchema = z.object({
 
 export const claimQuerySchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).default(0),
 });

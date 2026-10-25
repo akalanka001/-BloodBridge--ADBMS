@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, ArrowLeft, Search, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { campsApi } from '../api/campsApi.js';
+import { Pagination } from '../../../components/ui/Pagination.jsx';
 
 export function CampRegistrationsPage({ campId, onBack }) {
   const [camp, setCamp] = useState(null);
@@ -9,6 +10,11 @@ export function CampRegistrationsPage({ campId, onBack }) {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => { const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300); return () => clearTimeout(timer); }, [search]);
 
   useEffect(() => {
     let mounted = true;
@@ -18,11 +24,12 @@ export function CampRegistrationsPage({ campId, onBack }) {
       try {
         const [campRes, regRes] = await Promise.all([
           campsApi.getCamp(campId),
-          campsApi.listRegistrations(campId),
+          campsApi.listRegistrations(campId, { search: debouncedSearch, status: statusFilter === 'ALL' ? '' : statusFilter, limit: pageSize, offset: (page - 1) * pageSize }),
         ]);
         if (mounted) {
           setCamp(campRes.data);
           setRegistrations(regRes.data || []);
+          setTotal(regRes.pagination?.total || 0);
         }
       } catch (err) {
         if (mounted) setError(err.response?.data?.error || err.message || 'Failed to load registrations');
@@ -32,17 +39,9 @@ export function CampRegistrationsPage({ campId, onBack }) {
     }
     if (campId) loadRegistrations();
     return () => { mounted = false; };
-  }, [campId]);
+  }, [campId, debouncedSearch, statusFilter, page, pageSize]);
 
-  const filtered = registrations.filter((r) => {
-    const matchesStatus = statusFilter === 'ALL' || r.registration_status === statusFilter;
-    const matchesSearch =
-      !search ||
-      r.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      r.phone?.includes(search) ||
-      r.blood_type_code?.toLowerCase().includes(search.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filtered = registrations;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -84,7 +83,7 @@ export function CampRegistrationsPage({ campId, onBack }) {
             <button
               key={st}
               type="button"
-              onClick={() => setStatusFilter(st)}
+              onClick={() => { setStatusFilter(st); setPage(1); }}
               style={{
                 padding: '6px 12px',
                 borderRadius: '6px',
@@ -178,6 +177,7 @@ export function CampRegistrationsPage({ campId, onBack }) {
           </tbody>
         </table>
       </div>
+      <Pagination page={page} pageSize={pageSize} total={total} loading={loading} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} />
     </div>
   );
 }

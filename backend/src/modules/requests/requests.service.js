@@ -1,6 +1,7 @@
 import { requestsRepository } from './requests.repository.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../infrastructure/errors.js';
 import { broadcastEmergencyRequest } from '../../socket.js';
+import { hospitalCandidatesService } from '../hospital/candidates.service.js';
 
 export class RequestsService {
   async getHospitalRequests(userId, filters = {}) {
@@ -20,15 +21,27 @@ export class RequestsService {
     if (!request) {
       throw new NotFoundError('Blood request not found or access denied');
     }
-    return requestsRepository.getRequestProgress(requestId);
+    return this.getMatchingSummary(requestId, userId);
   }
 
-  async getMatchingSummary(requestId, userId) {
+  async getMatchingSummary(requestId, userId, requestItemId) {
     const request = await requestsRepository.getRequestById(requestId, userId);
     if (!request) {
       throw new NotFoundError('Blood request not found or access denied');
     }
-    return requestsRepository.getRequestProgress(requestId);
+    const items = [...(request.items_json || [])].sort((a, b) => a.itemId.localeCompare(b.itemId));
+    const item = requestItemId ? items.find(row => row.itemId === requestItemId) : items[0];
+    if (!item) throw new NotFoundError('Request item not found for this request');
+    const [progress, stock, candidates] = await Promise.all([
+      requestsRepository.getRequestProgress(requestId),
+      requestsRepository.matchingStockForItem(item),
+      hospitalCandidatesService.search(userId, { hospitalId: request.hospital_id, requestId, requestItemId: item.itemId, districtCode: request.hospital_district }),
+    ]);
+    return { ...progress, requestId, requestItemId: item.itemId, bloodTypeCode: item.bloodTypeCode,
+      componentCode: item.componentCode, unitsRequested: item.unitsRequested,
+      inventoryFacilitiesCount: Number(stock.facilities), matchingStockUnits: Number(stock.units),
+      potentialDonorsCount: candidates.candidateCount, queriedAt: candidates.queriedAt,
+      scope: candidates.definition };
   }
 
   async createRequest(data, userId) {
@@ -83,6 +96,9 @@ export class RequestsService {
     }
 
     const dashboard = await requestsRepository.getHospitalDashboard(Number(hospitalId), userId);
+    if (dashboard.matchingOverview?.requestId) {
+      dashboard.matchingOverview = await this.getMatchingSummary(dashboard.matchingOverview.requestId, userId);
+    }
     const kpis = dashboard.kpis || {};
     return {
       ...dashboard,

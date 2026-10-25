@@ -7,7 +7,7 @@ import { VisitCheckInForm } from './components/VisitCheckInForm.jsx';
 import { AssessmentForm } from './components/AssessmentForm.jsx';
 import { CollectionForm } from './components/CollectionForm.jsx';
 
-export function IntakePortal({ token, userBankId = 1, initialTab = 'lookup' }) {
+export function IntakePortal({ token, userBankId, initialTab = 'lookup' }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [selectedDonor, setSelectedDonor] = useState(null);
   const [activeVisitId, setActiveVisitId] = useState('');
@@ -118,6 +118,8 @@ export function IntakePortal({ token, userBankId = 1, initialTab = 'lookup' }) {
       setLoading(false);
     }
   };
+
+  if (!userBankId) return <div className="bb-empty" role="alert">Select an assigned blood bank before recording donor intake activity.</div>;
 
   return (
     <div className="intake-portal-feature" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
