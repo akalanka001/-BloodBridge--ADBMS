@@ -369,9 +369,33 @@ describe('Member 1 — Complete Administrator Dashboard & Governance API', () =>
 
   // --- 6. Camp Approvals & Rejection Workflow ---
   it('M1-15: Camp review: Admin can approve a PENDING camp or reject it with a reason', async () => {
-    // Create a pending camp to test approval / rejection
+    // Ensure reference location and organizer exist for test camp
+    let campLocationId;
     const { rows: locRows } = await pool.query('SELECT id FROM locations LIMIT 1');
+    if (locRows.length > 0) {
+      campLocationId = locRows[0].id;
+    } else {
+      const insLoc = await pool.query(
+        `INSERT INTO locations (district_code, ds_code, town)
+         VALUES ('CO', 'COL', 'Colombo')
+         RETURNING id`
+      );
+      campLocationId = insLoc.rows[0].id;
+    }
+
+    let campOrganizerId;
     const { rows: orgRows } = await pool.query('SELECT id FROM camp_organizers LIMIT 1');
+    if (orgRows.length > 0) {
+      campOrganizerId = orgRows[0].id;
+    } else {
+      const insOrg = await pool.query(
+        `INSERT INTO camp_organizers (name, is_verified)
+         VALUES ($1, true)
+         RETURNING id`,
+        [`M1 Test Organizer ${Date.now()}`]
+      );
+      campOrganizerId = insOrg.rows[0].id;
+    }
 
     const campRes = await pool.query(`
       INSERT INTO donation_camps (
@@ -384,7 +408,7 @@ describe('Member 1 — Complete Administrator Dashboard & Governance API', () =>
         100, 'PENDING', $4
       )
       RETURNING id
-    `, [orgRows[0].id, testBankId, locRows[0].id, adminUserId]);
+    `, [campOrganizerId, testBankId, campLocationId, adminUserId]);
 
     const testCampId = campRes.rows[0].id;
 
