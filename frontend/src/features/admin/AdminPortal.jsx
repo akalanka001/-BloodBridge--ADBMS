@@ -1,132 +1,90 @@
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, CheckCircle2, XCircle, BarChart3, Database } from 'lucide-react';
-import { Badge } from '../../components/ui/Typography.jsx';
-import { api } from '../../lib/api.js';
+import React, { useEffect, useState } from 'react';
+import { SectionTabs } from '../../components/ui/SectionTabs.jsx';
+import { AdminOverview } from './pages/AdminOverview.jsx';
+import { UserManagementPage } from './pages/UserManagementPage.jsx';
+import { InstitutionManagementPage } from './pages/InstitutionManagementPage.jsx';
+import { CampOversightPage } from './pages/CampOversightPage.jsx';
+import { CampApprovalsPage } from './pages/CampApprovalsPage.jsx';
+import { NotificationMonitoringPage } from './pages/NotificationMonitoringPage.jsx';
+import { AuditActivityPage } from './pages/AuditActivityPage.jsx';
+import { AdministrativeLedger } from './pages/AdministrativeLedger.jsx';
+import { AnalyticsOverview } from '../analytics/pages/AnalyticsOverview.jsx';
+import { DemandAnalysisPage } from '../analytics/pages/DemandAnalysisPage.jsx';
+import { StockReportsPage } from '../analytics/pages/StockReportsPage.jsx';
+import { CampAnalyticsPage } from '../analytics/pages/CampAnalyticsPage.jsx';
+import { TransferReportsPage } from '../analytics/pages/TransferReportsPage.jsx';
+import { ETLPipelinePage } from '../analytics/pages/ETLPipelinePage.jsx';
+import { DatabasePerformancePage } from '../analytics/pages/DatabasePerformancePage.jsx';
 
-export function AdminPortal({ token }) {
-  const [pendingClaims, setPendingClaims] = useState([]);
-  const [analyticsData, setAnalyticsData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+const aliases = {
+  users: ['people', 'accounts'], analytics: ['reports', 'summary'], demand: ['reports', 'demand'],
+  stock: ['reports', 'stock'], camps: ['reports', 'camps'], transfers: ['reports', 'transfers'],
+  benchmarks: ['system', 'performance'], etl: ['system', 'warehouse'], 'data-quality': ['system', 'warehouse'],
+  'camp-oversight': ['operations', 'camps'], 'camp-approvals': ['operations', 'approvals'],
+  'notification-monitoring': ['system', 'delivery'], 'audit-activity': ['system', 'audit'],
+};
+const groups = {
+  people: [['accounts', 'Accounts & staff'], ['donors', 'All donor records'], ['invitations', 'Invitation history']],
+  operations: [['camps', 'Camps'], ['approvals', 'Pending approvals'], ['requests', 'Requests'],
+    ['inventory', 'Stock units'], ['reservations', 'Reservations'], ['transfers', 'Transfers'],
+    ['fulfillments', 'Fulfillments'], ['donations', 'Collections'], ['visits', 'Visits'],
+    ['movements', 'Stock activity'], ['appeals', 'Emergency appeals'], ['registrations', 'Camp participation']],
+  reports: [['summary', 'Summary'], ['demand', 'Demand'], ['stock', 'Stock'], ['camps', 'Camps'], ['transfers', 'Transfers']],
+  system: [['audit', 'Audit activity'], ['delivery', 'Notification delivery'], ['warehouse', 'Warehouse & quality'], ['performance', 'Performance lab']],
+};
+class AdminSectionBoundary extends React.Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (this.state.failed) return <div className="notice error" role="alert">
+      This section could not be displayed. Other administrative sections remain available.
+      <button type="button" className="btn outline" onClick={() => this.setState({ failed: false })}>Retry section</button>
+    </div>;
+    return this.props.children;
+  }
+}
 
-  const loadData = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const claimsRes = await api('/admin/donor-link-claims', {}, token);
-      setPendingClaims(claimsRes.data || []);
-      const analyticsRes = await api('/analytics/summary', {}, token);
-      setAnalyticsData(analyticsRes.data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+export function AdminPortal({ token, activeTab = 'overview', onTabChange = () => {} }) {
+  const group = aliases[activeTab]?.[0] || activeTab;
+  const readSection = () => {
+    const candidate = aliases[activeTab]?.[1] || new URLSearchParams(window.location.hash.split('?')[1] || '').get('section');
+    return groups[group]?.some(([id]) => id === candidate) ? candidate : groups[group]?.[0]?.[0];
   };
-
+  const [section, setSection] = useState(readSection);
   useEffect(() => {
-    if (token) loadData();
-  }, [token]);
-
-  const handleClaimDecision = async (claimId, approve) => {
-    setError('');
-    setSuccess('');
-    try {
-      if (approve) {
-        await api(`/admin/donor-link-claims/${claimId}/approve`, { method: 'POST' }, token);
-        setSuccess('Donor identity claim successfully approved! Walk-in donation history reconciled.');
-      } else {
-        await api(`/admin/donor-link-claims/${claimId}/reject`, {
-          method: 'POST',
-          body: JSON.stringify({ reason: 'Verification documentation did not match identity records' }),
-        }, token);
-        setSuccess('Donor identity claim rejected.');
-      }
-      loadData();
-    } catch (err) {
-      setError(err.message);
-    }
+    setSection(readSection());
+    const sync = () => setSection(readSection());
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
+  }, [activeTab]);
+  const selectSection = (next) => {
+    setSection(next);
+    const [route, query] = window.location.hash.split('?');
+    const params = new URLSearchParams(query || '');
+    params.set('tab', group);
+    params.set('section', next);
+    window.location.hash = `${route || '#admin'}?${params}`;
   };
-
-  return (
-    <div className="admin-portal-feature">
-      {error && <div className="notice error">{error}</div>}
-      {success && <div className="notice success">{success}</div>}
-
-      <div className="surface-card" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3>Pending Donor Account Link Claims</h3>
-          <button className="outline small" onClick={loadData} disabled={loading}>
-            Refresh
-          </button>
-        </div>
-        <p>
-          Administrator review to link walk-in donor records to registered online accounts with full reconciliation.
-        </p>
-        {loading ? (
-          <p>Loading claims…</p>
-        ) : pendingClaims.length > 0 ? (
-          <div>
-            {pendingClaims.map((claim) => (
-              <div
-                key={claim.id}
-                className="surface-card claim-item"
-                style={{ marginBottom: '1rem', borderLeft: '4px solid #ef4444', padding: '1rem' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                  <div>
-                    <strong style={{ fontSize: '1.05rem' }}>Online User:</strong> {claim.claimant_name} ({claim.claimant_email})<br />
-                    <strong>Target Walk-in Record:</strong> {claim.donor_name} ({claim.donor_phone || 'No phone'}) · Blood: {claim.blood_type_code || 'Unspecified'}<br />
-                    <small style={{ color: '#64748b' }}>Claim ID: {claim.id} | Verification Notes: {claim.verification_notes || 'None provided'}</small>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      id={`btn-approve-claim-${claim.id}`}
-                      className="primary small"
-                      onClick={() => handleClaimDecision(claim.id, true)}
-                    >
-                      <CheckCircle2 size={15} style={{ marginRight: '4px' }} /> Approve Link
-                    </button>
-                    <button
-                      id={`btn-reject-claim-${claim.id}`}
-                      className="outline small"
-                      onClick={() => handleClaimDecision(claim.id, false)}
-                    >
-                      <XCircle size={15} style={{ marginRight: '4px' }} /> Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ color: '#64748b' }}>No pending account claims requiring review.</p>
-        )}
-      </div>
-
-      {analyticsData?.metrics && (
-        <div className="surface-card">
-          <h3>Operational Warehouse Metrics</h3>
-          <div className="three-grid">
-            <div className="surface-card stat-card">
-              <span className="small-label">Total Donors</span>
-              <h3>{analyticsData.metrics.total_donors}</h3>
-              <p>Registered in system</p>
-            </div>
-            <div className="surface-card stat-card">
-              <span className="small-label">Total Donations</span>
-              <h3>{analyticsData.metrics.total_donations}</h3>
-              <p>Completed collections</p>
-            </div>
-            <div className="surface-card stat-card">
-              <span className="small-label">Available Units</span>
-              <h3>{analyticsData.metrics.available_units}</h3>
-              <p>Released in stock</p>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const selected = groups[group]?.some(([id]) => id === section) ? section : groups[group]?.[0]?.[0];
+  let content;
+  if (group === 'overview') content = <AdminOverview token={token} onNavigateTab={onTabChange} />;
+  else if (group === 'institutions') content = <InstitutionManagementPage token={token} />;
+  else if (group === 'people') content = selected === 'accounts' ? <UserManagementPage token={token} />
+    : <AdministrativeLedger key={selected} token={token} dataset={selected} />;
+  else if (group === 'operations') content = selected === 'camps' ? <CampOversightPage token={token} />
+    : selected === 'approvals' ? <CampApprovalsPage token={token} /> : <AdministrativeLedger key={selected} token={token} dataset={selected} />;
+  else if (group === 'reports') {
+    const Report = { summary: AnalyticsOverview, demand: DemandAnalysisPage, stock: StockReportsPage, camps: CampAnalyticsPage, transfers: TransferReportsPage }[selected];
+    content = <Report token={token} />;
+  } else if (group === 'system') {
+    const System = { audit: AuditActivityPage, delivery: NotificationMonitoringPage, warehouse: ETLPipelinePage, performance: DatabasePerformancePage }[selected];
+    content = <System token={token} />;
+  } else content = <div className="notice error"><h2>Administrative Section Not Found</h2>
+    <p>The selected administrative section ({activeTab}) is unavailable.</p>
+    <button onClick={() => onTabChange('overview')}>Return to Overview Dashboard</button></div>;
+  return <div className="admin-workspace">
+    {groups[group] && <SectionTabs tabs={groups[group].map(([id, label]) => ({ id, label }))} activeTab={selected} onChange={selectSection} />}
+    <AdminSectionBoundary key={`${group}:${selected || ''}`}>{content}</AdminSectionBoundary>
+  </div>;
 }

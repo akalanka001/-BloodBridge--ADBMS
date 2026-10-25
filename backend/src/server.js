@@ -10,15 +10,22 @@ import locationRoutes from './modules/geography/geography.routes.js';
 import donorRoutes from './modules/donors/donors.routes.js';
 import donorIntakeRoutes from './modules/donor-intake/intake.routes.js';
 import requestRoutes from './modules/requests/requests.routes.js';
+import hospitalRoutes from './modules/hospital/hospital.routes.js';
+import fulfillmentRoutes from './modules/fulfillments/fulfillments.routes.js';
+import appealsRoutes from './modules/emergency-appeals/appeals.routes.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
+import bankRoutes from './modules/bank/bank.routes.js';
 import transferRoutes from './modules/transfers/transfers.routes.js';
 import campRoutes from './modules/camps/camps.routes.js';
+import mediaRoutes from './modules/media/media.routes.js';
+import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import { bankController } from './modules/bank/bank.controller.js';
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '150kb' }));
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', async (_req, res) => {
   try {
@@ -35,7 +42,7 @@ app.get('/api/v1', (_req, res) => res.json({
   version: '2.0.0',
   modules: [
     'identity', 'geography', 'donors', 'donor-intake',
-    'requests', 'inventory', 'transfers', 'camps', 'analytics', 'admin',
+    'requests', 'inventory', 'transfers', 'camps', 'media', 'notifications', 'analytics', 'admin',
   ],
   note: 'API routes verified under docs/API_IMPLEMENTED.md and docs/API_CONTRACT_V2.yaml',
 }));
@@ -46,9 +53,16 @@ app.use('/api/v1/locations', locationRoutes);
 app.use('/api/v1/donors', donorRoutes);
 app.use('/api/v1/donor-intake', donorIntakeRoutes);
 app.use('/api/v1/requests', requestRoutes);
+app.use('/api/v1/hospital', hospitalRoutes);
+app.use('/api/v1/fulfillments', fulfillmentRoutes);
+app.use('/api/v1/emergency-appeals', appealsRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/bank', bankRoutes);
+app.get('/api/v1/blood-banks', (req, res, next) => bankController.getVerifiedBloodBanks(req, res, next));
 app.use('/api/v1/transfers', transferRoutes);
 app.use('/api/v1/camps', campRoutes);
+app.use('/api/v1/media', mediaRoutes);
+app.use('/api/v1/notifications', notificationsRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
@@ -59,6 +73,9 @@ app.use((_req, res) => res.status(404).json({ error: 'Endpoint not found' }));
 app.use((err, _req, res, _next) => {
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json({ error: err.message, details: err.details });
+  }
+  if (err.statusCode || err.status) {
+    return res.status(err.statusCode || err.status).json({ error: err.message });
   }
   if (err instanceof ZodError) {
     return res.status(400).json({

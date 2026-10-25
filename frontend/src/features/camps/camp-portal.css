@@ -1,0 +1,884 @@
+/* ==========================================================================
+   BloodBridge Camp Discovery Design System & Event Card Styles
+   Tokens:
+   - Deep Navy:      #1D3043
+   - Primary Red:    #DB3654
+   - Background:     #F7F9FC
+   - Surface:        #FFFFFF
+   - Border:         #E6EBF1
+   - Secondary Text: #64748B
+   ========================================================================== */
+
+:root {
+  --bb-navy: #1D3043;
+  --bb-navy-dark: #14243A;
+  --bb-red: #DB3654;
+  --bb-red-hover: #C42845;
+  --bb-red-active: #B0203B;
+  --bb-bg: #F7F9FC;
+  --bb-surface: #FFFFFF;
+  --bb-border: #E6EBF1;
+  --bb-border-hover: #D5DDE8;
+  --bb-text-primary: #1D3043;
+  --bb-text-secondary: #64748B;
+  --bb-text-muted: #8E9CAE;
+  --bb-emerald: #108A65;
+  --bb-emerald-bg: #EAF8F3;
+  --bb-emerald-border: #BCE7D6;
+  --bb-amber: #D97706;
+  --bb-amber-bg: #FEF3C7;
+  --bb-amber-border: #FDE68A;
+  --bb-radius-card: 16px;
+  --bb-radius-media: 14px;
+  --bb-radius-btn: 9px;
+  --bb-radius-badge: 6px;
+  --bb-shadow-subtle: 0 2px 6px -1px rgba(29, 48, 67, 0.05), 0 1px 3px rgba(29, 48, 67, 0.03);
+  --bb-shadow-hover: 0 14px 28px -6px rgba(29, 48, 67, 0.11), 0 4px 10px -2px rgba(29, 48, 67, 0.05);
+}
+
+/* ==========================================================================
+   Workspace Layout & Discovery Headers
+   ========================================================================== */
+
+.camp-workspace {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  color: var(--bb-navy);
+}
+
+.camp-header-group h2 {
+  margin: 0 0 6px 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--bb-navy);
+  letter-spacing: -0.02em;
+}
+
+.camp-header-group p {
+  margin: 0;
+  color: var(--bb-text-secondary);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+/* Tab Navigation */
+.camp-workspace .camp-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--bb-border);
+  padding-bottom: 12px;
+}
+
+.camp-workspace .camp-tabs button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--bb-radius-btn);
+  background: transparent;
+  color: var(--bb-text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.camp-workspace .camp-tabs button:hover {
+  background: #EEF3F8;
+  color: var(--bb-navy);
+}
+
+.camp-workspace .camp-tabs button[aria-pressed="true"] {
+  background: var(--bb-navy);
+  color: #FFFFFF;
+  border-color: var(--bb-navy);
+  box-shadow: 0 2px 8px rgba(29, 48, 67, 0.18);
+}
+
+/* Filter Panel */
+.camp-filter-panel {
+  display: grid;
+  gap: 18px;
+  padding: 22px 24px;
+  background: var(--bb-surface);
+  border: 1px solid var(--bb-border);
+  border-radius: var(--bb-radius-card);
+  box-shadow: var(--bb-shadow-subtle);
+}
+
+.camp-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 240px) auto;
+  align-items: end;
+  gap: 16px;
+}
+
+.camp-filter-panel label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bb-navy);
+}
+
+.camp-filter-panel input[type="search"],
+.camp-filter-panel input[type="text"],
+.camp-filter-panel select {
+  width: 100%;
+  min-height: 44px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--bb-navy);
+  background: #FFFFFF;
+  border: 1px solid #CFD8E3;
+  border-radius: var(--bb-radius-btn);
+  padding: 9px 12px;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.camp-filter-panel input:focus,
+.camp-filter-panel select:focus {
+  outline: none;
+  border-color: var(--bb-navy);
+  box-shadow: 0 0 0 3px rgba(29, 48, 67, 0.12);
+}
+
+.camp-filter-panel .geo-selector {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.camp-filter-info {
+  margin: 0;
+  font-size: 13px;
+  color: var(--bb-text-secondary);
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   Responsive Camp Cards Grid
+   Desktop: 3 per row (when >= 1100px), 2 per row (768px-1099px)
+   Mobile: 1 column
+   ========================================================================== */
+
+.bb-camp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
+}
+
+@media (max-width: 1120px) {
+  .bb-camp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (max-width: 680px) {
+  .bb-camp-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
+/* ==========================================================================
+   Image-Led Camp Card
+   Tokens: Surface #FFF, Border #E6EBF1, Radius 16px, Padding 22px
+   ========================================================================== */
+
+.bb-camp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bb-surface);
+  border: 1px solid var(--bb-border);
+  border-radius: var(--bb-radius-card);
+  box-shadow: var(--bb-shadow-subtle);
+  overflow: hidden;
+  height: 100%;
+  animation: bbCardFadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 200ms ease;
+}
+
+.bb-camp-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--bb-shadow-hover);
+  border-color: var(--bb-border-hover);
+}
+
+/* 1. Header Media (16:9 Aspect Ratio) */
+.bb-camp-card-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 175px;
+  max-height: 220px;
+  background: #14243A;
+  overflow: hidden;
+  border-top-left-radius: calc(var(--bb-radius-card) - 1px);
+  border-top-right-radius: calc(var(--bb-radius-card) - 1px);
+}
+
+.bb-camp-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bb-camp-card:hover .bb-camp-card-img {
+  transform: scale(1.025);
+}
+
+/* Fallback Branded Graphic */
+.bb-camp-illustration {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1D3043 0%, #14243A 65%, #0F1B2A 100%);
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bb-camp-card:hover .bb-camp-illustration {
+  transform: scale(1.025);
+}
+
+.bb-camp-illustration-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Compact Date Badge Overlay (Top-Left) */
+.bb-camp-date-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  padding: 5px 4px 6px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-radius: 9px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.bb-camp-date-month {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--bb-red);
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.bb-camp-date-day {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--bb-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status / Approval Overlay Badge (Top-Right) */
+.bb-camp-media-badges {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.bb-camp-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.bb-camp-status-pill.approved {
+  background: rgba(16, 138, 101, 0.95);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.bb-camp-status-pill.pending {
+  background: rgba(217, 119, 6, 0.95);
+  color: #FFFFFF;
+}
+
+/* 2. Card Body Content (Interior padding: 22px, Spacing: 12px) */
+.bb-camp-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 22px;
+  gap: 13px;
+}
+
+/* Badges Row */
+.bb-camp-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.bb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--bb-radius-badge);
+  line-height: 1.35;
+  transition: opacity 180ms ease;
+}
+
+.bb-badge-nearby {
+  background: #EDF3FB;
+  color: #1A5490;
+  border: 1px solid #CBDDF2;
+}
+
+.bb-badge-registered {
+  background: var(--bb-emerald-bg);
+  color: var(--bb-emerald);
+  border: 1px solid var(--bb-emerald-border);
+  font-weight: 700;
+}
+
+.bb-badge-full {
+  background: #FFF3E8;
+  color: #C05621;
+  border: 1px solid #FBD38D;
+}
+
+.bb-badge-closed {
+  background: #F1F5F9;
+  color: var(--bb-text-secondary);
+  border: 1px solid #E2E8F0;
+}
+
+/* Title: 17–19px, semibold/bold */
+.bb-camp-card-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bb-navy);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 2.7em;
+  transition: color 180ms ease;
+}
+
+.bb-camp-card:hover .bb-camp-card-title {
+  color: var(--bb-red);
+}
+
+/* Metadata List: 13–14px */
+.bb-camp-meta-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 2px;
+}
+
+.bb-camp-meta-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--bb-text-secondary);
+  line-height: 1.45;
+}
+
+.bb-meta-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--bb-text-muted);
+}
+
+.bb-meta-icon.pin {
+  color: var(--bb-red);
+}
+
+.bb-meta-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+/* Registration Count & Remaining Capacity Box */
+.bb-camp-capacity-box {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  background: #F8FAFC;
+  border: 1px solid #ECF0F4;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.bb-capacity-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--bb-text-secondary);
+}
+
+.bb-capacity-line strong {
+  color: var(--bb-navy);
+  font-weight: 700;
+}
+
+.bb-capacity-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.bb-capacity-pill.available {
+  background: #EAF8F3;
+  color: #108A65;
+}
+
+.bb-capacity-pill.urgent {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.bb-capacity-pill.full {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+/* Capacity Progress Bar */
+.bb-capacity-progress {
+  width: 100%;
+  height: 5px;
+  background: #E2E8F0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.bb-capacity-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #108A65 0%, #059669 100%);
+  border-radius: 9999px;
+  transition: width 300ms ease;
+}
+
+.bb-capacity-bar-fill.full {
+  background: #DB3654;
+}
+
+/* Error message inside card */
+.bb-camp-card-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  background: #FFF3F3;
+  color: #B0203B;
+  border: 1px solid #FBC7CC;
+  border-radius: 6px;
+}
+
+/* 3. Actions Section: Two side-by-side buttons of equal width */
+.bb-camp-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--bb-border);
+}
+
+.bb-camp-card-actions button,
+.bb-camp-card-actions a {
+  width: 100%;
+  min-height: 44px;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--bb-radius-btn);
+  padding: 8px 12px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Outlined button (View Details) */
+.btn-camp-outline {
+  background: #FFFFFF;
+  color: var(--bb-navy);
+  border: 1px solid #CFD8E3;
+}
+
+.btn-camp-outline:hover:not(:disabled) {
+  background: #F6F8FA;
+  border-color: #A9B8CA;
+  color: var(--bb-navy);
+}
+
+.btn-camp-outline .bb-arrow-icon {
+  transition: transform 180ms ease;
+}
+
+.btn-camp-outline:hover:not(:disabled) .bb-arrow-icon {
+  transform: translateX(3px);
+}
+
+/* Solid BloodBridge Red button (Register) */
+.btn-camp-primary {
+  background: var(--bb-red);
+  color: #FFFFFF;
+  border: 1px solid var(--bb-red);
+  box-shadow: 0 2px 6px rgba(219, 54, 84, 0.22);
+}
+
+.btn-camp-primary:hover:not(:disabled) {
+  background: var(--bb-red-hover);
+  border-color: var(--bb-red-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(219, 54, 84, 0.32);
+}
+
+.btn-camp-primary:active:not(:disabled) {
+  background: var(--bb-red-active);
+  transform: translateY(0);
+}
+
+/* Cancel Registration Button */
+.btn-camp-cancel {
+  background: #FFFFFF;
+  color: #A82036;
+  border: 1px solid #F1B4BD;
+}
+
+.btn-camp-cancel:hover:not(:disabled) {
+  background: #FFF3F4;
+  border-color: #E28997;
+  color: #8C1628;
+}
+
+/* Disabled State for Full / Closed */
+.btn-camp-disabled {
+  background: #F1F5F9;
+  color: #94A3B8;
+  border: 1px solid #E2E8F0;
+  cursor: not-allowed;
+}
+
+/* Confirmation Row inside actions */
+.bb-camp-cancel-confirm {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  background: #FFF5F6;
+  border: 1px solid #F9CBD2;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.bb-cancel-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8C1628;
+  text-align: center;
+}
+
+.bb-cancel-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.btn-camp-danger {
+  background: var(--bb-red);
+  color: #FFFFFF;
+  border: 1px solid var(--bb-red);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-camp-danger:hover:not(:disabled) {
+  background: var(--bb-red-hover);
+}
+
+/* Spinner */
+.bb-spin-icon {
+  animation: bbSpin 800ms linear infinite;
+}
+
+@keyframes bbSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bbCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   Skeleton Shimmer Cards (During Async Searches)
+   ========================================================================== */
+
+.bb-camp-skeleton {
+  pointer-events: none;
+  border-color: #EBF0F5;
+}
+
+.bb-skeleton-box {
+  background: #E8EEF4;
+  position: relative;
+  overflow: hidden;
+}
+
+.bb-skeleton-box::after,
+.bb-skeleton-row::after,
+.bb-skeleton-title::after,
+.bb-skeleton-btn::after,
+.bb-skeleton-capacity::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: bbShimmer 1.6s infinite;
+}
+
+@keyframes bbShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.bb-skeleton-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 50px;
+  height: 52px;
+  background: #DCE5ED;
+  border-radius: 8px;
+}
+
+.bb-skeleton-title {
+  position: relative;
+  height: 24px;
+  width: 82%;
+  background: #E4ECF3;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.bb-skeleton-row {
+  position: relative;
+  height: 16px;
+  width: 92%;
+  background: #EBF0F5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bb-skeleton-row.short {
+  width: 45%;
+  height: 18px;
+}
+
+.bb-skeleton-row.medium {
+  width: 68%;
+}
+
+.bb-skeleton-capacity {
+  position: relative;
+  height: 38px;
+  background: #F1F5F9;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.bb-skeleton-btn {
+  position: relative;
+  height: 44px;
+  background: #E4ECF3;
+  border-radius: var(--bb-radius-btn);
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Camp Details View Styling
+   ========================================================================== */
+
+.bb-camp-detail {
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+  background: var(--bb-surface);
+  border: 1px solid var(--bb-border);
+  border-radius: var(--bb-radius-card);
+  box-shadow: var(--bb-shadow-subtle);
+}
+
+.bb-camp-detail-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 340px;
+  background: #14243A;
+  border-radius: var(--bb-radius-media);
+  overflow: hidden;
+}
+
+.bb-camp-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 18px 0;
+  border-top: 1px solid var(--bb-border);
+  border-bottom: 1px solid var(--bb-border);
+}
+
+.bb-camp-detail dt {
+  color: var(--bb-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.bb-camp-detail dd {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--bb-navy);
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.camp-workspace .camp-empty {
+  border: 2px dashed #CBD5E1;
+  padding: 44px 24px;
+  border-radius: var(--bb-radius-card);
+  display: grid;
+  gap: 10px;
+  text-align: center;
+  background: #FFFFFF;
+}
+
+.camp-workspace .camp-empty h3 {
+  color: var(--bb-navy);
+  font-size: 18px;
+  margin: 0;
+}
+
+.camp-workspace .camp-empty p {
+  color: var(--bb-text-secondary);
+  margin: 0;
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+/* ==========================================================================
+   Accessibility & Reduced Motion
+   Respects prefers-reduced-motion
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-camp-card,
+  .bb-camp-card:hover,
+  .bb-camp-card-img,
+  .bb-camp-card:hover .bb-camp-card-img,
+  .bb-camp-illustration,
+  .bb-camp-card:hover .bb-camp-illustration,
+  .btn-camp-primary,
+  .btn-camp-outline,
+  .bb-arrow-icon,
+  .btn-camp-outline:hover .bb-arrow-icon,
+  .bb-skeleton-box::after,
+  .bb-skeleton-row::after,
+  .bb-skeleton-title::after,
+  .bb-skeleton-btn::after,
+  .bb-skeleton-capacity::after,
+  .bb-spin-icon {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* Mobile & Touch Target adjustments */
+@media (max-width: 580px) {
+  .camp-search-row {
+    grid-template-columns: 1fr;
+  }
+  .camp-filter-panel .geo-selector {
+    grid-template-columns: 1fr;
+  }
+  .bb-camp-detail dl {
+    grid-template-columns: 1fr;
+  }
+  .bb-camp-card-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}

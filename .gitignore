@@ -8,3 +8,8 @@ coverage/
 .DS_Store
 .vscode/
 *.log
+backend/uploads/*
+!backend/uploads/**/.gitkeep
+/uploads/
+.taste-skill/
+output/

@@ -1,8 +1,16 @@
 erDiagram
+  %% Migration 021 changes no entities/cardinalities. Camp approval requires a
+  %% verified coordinating bank and an active ADMIN or assigned active BANK_STAFF.
   PROVINCES ||--o{ DISTRICTS : contains
   DISTRICTS ||--o{ DS_DIVISIONS : contains
+  DS_DIVISIONS ||--o{ GN_DIVISIONS : contains
   DISTRICTS ||--o{ LOCATIONS : has
   DS_DIVISIONS o|--o{ LOCATIONS : refines
+  GN_DIVISIONS o|--o{ LOCATIONS : refines
+  USERS ||--o{ AUTH_SESSIONS : maintains
+  USERS ||--o{ PASSWORD_RESET_TOKENS : receives
+  USERS ||--o{ EMAIL_VERIFICATION_TOKENS : verifies
+  USERS ||--o{ STAFF_INVITATIONS : creates
   USERS ||--o| DONORS : profiles
   USERS ||--o{ STAFF_MEMBERSHIPS : assigned
   HOSPITALS ||--o{ STAFF_MEMBERSHIPS : employs

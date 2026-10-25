@@ -66,6 +66,26 @@ export class IntakeController {
       next(err);
     }
   }
+
+  async listVisits(req, res, next) {
+    try {
+      const bankId = req.query.bankId ? Number(req.query.bankId) : null;
+      const data = await intakeService.listVisits(bankId);
+      res.json({ data, count: data.length });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async listDonations(req, res, next) {
+    try {
+      const bankId = req.query.bankId ? Number(req.query.bankId) : null;
+      const data = await intakeService.listDonations(bankId);
+      res.json({ data, count: data.length });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const intakeController = new IntakeController();

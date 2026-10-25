@@ -1,32 +1,123 @@
 import { campsRepository } from './camps.repository.js';
-import { NotFoundError, ForbiddenError, ConflictError } from '../../infrastructure/errors.js';
+import { mediaService } from '../media/media.service.js';
+import { NotFoundError, ForbiddenError, ConflictError, BadRequestError } from '../../infrastructure/errors.js';
 import { broadcastCampCapacity } from '../../socket.js';
 
 export class CampsService {
-  async listPublicCamps(districtCode) {
-    return campsRepository.listPublicCamps(districtCode);
+  async listPublicCamps(filters = {}) {
+    await campsRepository.validateGeography(filters);
+    return campsRepository.listPublicCamps(filters);
+  }
+
+  async discoverCamps(filters, user) {
+    await campsRepository.validateGeography(filters);
+    return campsRepository.listPublicCamps(filters, user.id);
+  }
+
+  async getDonorCamp(id, user) {
+    const result = await campsRepository.listPublicCamps({ campId: id, limit: 1 }, user.id);
+    if (!result.data[0]) throw new NotFoundError('This camp is no longer open for registration');
+    return result.data[0];
+  }
+
+  async listManagedCamps(filters = {}, user) {
+    let targetBankId = filters.bloodBankId;
+    await campsRepository.validateGeography(filters);
+    if (targetBankId && user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, targetBankId);
+      if (!isStaff) throw new ForbiddenError('Not assigned to the selected coordinating blood bank');
+    }
+    return campsRepository.listManagedCamps({
+      ...filters,
+      bankId: targetBankId,
+      userRole: user.role,
+      userId: user.id,
+    });
   }
 
   async getCampById(id) {
+    const camp = await campsRepository.getPublicCampById(id);
+    if (!camp) throw new NotFoundError('Camp record not found');
+    return camp;
+  }
+
+  async getManagedCampById(id, user) {
     const camp = await campsRepository.getCampById(id);
-    if (!camp) throw new NotFoundError('No public camp found');
+    if (!camp) throw new NotFoundError('Camp record not found');
+    if (user.role !== 'ADMIN' && !(await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id))) {
+      throw new ForbiddenError('Not authorized for this coordinating blood bank');
+    }
     return camp;
   }
 
-  async createCamp(data, userId) {
-    const isStaff = await campsRepository.isStaffAtBank(userId, data.bloodBankId);
-    if (!isStaff) throw new ForbiddenError('Not assigned to this blood bank');
-    return campsRepository.createCamp(data, userId);
+  async createCamp(data, user) {
+    if (new Date(data.startsAt) <= new Date()) {
+      throw new BadRequestError('Camp start time must be in the future');
+    }
+    if (new Date(data.endsAt) <= new Date(data.startsAt)) {
+      throw new BadRequestError('Camp end time must be after start time');
+    }
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, data.bloodBankId);
+      if (!isStaff) throw new ForbiddenError('Not assigned to the selected coordinating blood bank');
+    }
+
+    return campsRepository.createCamp(data, user.id);
   }
 
-  async submitCamp(id, userId) {
-    const camp = await campsRepository.submitCamp(id, userId);
-    if (!camp) throw new ConflictError('Camp is unavailable or not owned by this bank');
-    return camp;
+  async updateCamp(id, data, user) {
+    const camp = await campsRepository.getCampById(id);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized to edit this camp');
+    }
+
+    if (camp.status !== 'DRAFT') {
+      throw new BadRequestError(`Cannot edit camp in status ${camp.status}. Only DRAFT camps may be edited`);
+    }
+
+    return campsRepository.updateCamp(id, data, user.id);
   }
 
-  async approveCamp(id, userId) {
-    return campsRepository.approveCamp(id, userId);
+  async submitCamp(id, user) {
+    const camp = await campsRepository.getCampById(id);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized for this camp');
+    }
+
+    const updated = await campsRepository.submitCamp(id, user.id);
+    if (!updated) throw new ConflictError('Camp cannot be submitted (must be future DRAFT camp)');
+    return updated;
+  }
+
+  async approveCamp(id, user) {
+    const camp = await campsRepository.getCampById(id);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized for the coordinating blood bank');
+    }
+
+    return campsRepository.approveCamp(id, user.id);
+  }
+
+  async cancelCamp(id, user, reason) {
+    const camp = await campsRepository.getCampById(id);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized for this camp');
+    }
+
+    return campsRepository.cancelCamp(id, user.id, reason);
   }
 
   async registerDonor(campId, userId) {
@@ -43,6 +134,97 @@ export class CampsService {
     } catch {}
 
     return reg;
+  }
+
+  async cancelDonorRegistration(campId, userId) {
+    const reg = await campsRepository.cancelDonorRegistration(campId, userId);
+    if (!reg) throw new NotFoundError('Active registration not found');
+
+    try {
+      const registeredCount = await campsRepository.getCampRegistrationCount(campId);
+      broadcastCampCapacity({
+        campId,
+        registeredCount,
+        status: 'APPROVED',
+      });
+    } catch {}
+
+    return reg;
+  }
+
+  async getDonorRegistrations(user, filters) {
+    return campsRepository.getDonorRegistrations(user.id, filters);
+  }
+
+  async listCampRegistrations(campId, user, filters) {
+    const camp = await campsRepository.getCampById(campId);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized to view registrations for this camp');
+    }
+
+    return campsRepository.listCampRegistrations(campId, filters);
+  }
+
+  async checkInDonor(campId, donorId, user, status, notes) {
+    const camp = await campsRepository.getCampById(campId);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized to record attendance for this camp');
+    }
+
+    return campsRepository.checkInDonor(campId, donorId, user.id, status, notes);
+  }
+
+  async attachCampMedia(campId, data, user) {
+    const camp = await campsRepository.getCampById(campId);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized to manage media for this camp');
+    }
+
+    let mediaId = data.mediaId;
+    if (!mediaId && data.base64Data) {
+      const asset = await mediaService.processAndSaveImage({
+        base64Data: data.base64Data,
+        originalName: data.originalName,
+        altText: data.altText,
+        uploadedBy: user.id,
+      });
+      mediaId = asset.id;
+    }
+
+    if (!mediaId) throw new BadRequestError('Either mediaId or base64Data is required');
+
+    return campsRepository.attachCampMedia(campId, mediaId, data.isPrimary ?? true);
+  }
+
+  async removeCampMedia(campId, mediaId, user) {
+    const camp = await campsRepository.getCampById(campId);
+    if (!camp) throw new NotFoundError('Camp not found');
+
+    if (user.role !== 'ADMIN') {
+      const isStaff = await campsRepository.isStaffAtBank(user.id, camp.blood_bank_id);
+      if (!isStaff) throw new ForbiddenError('Not authorized to manage media for this camp');
+    }
+
+    return campsRepository.removeCampMedia(campId, mediaId);
+  }
+
+  async listCampMedia(campId) {
+    const camp = await campsRepository.getPublicCampById(campId);
+    if (!camp) throw new NotFoundError('Public camp record not found');
+    return campsRepository.listCampMedia(campId);
+  }
+
+  async listOrganizers() {
+    return campsRepository.listOrganizers();
   }
 }
 

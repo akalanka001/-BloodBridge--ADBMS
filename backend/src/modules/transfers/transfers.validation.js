@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+export const transfersQuerySchema = z.object({
+  bankId: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 export const createTransferSchema = z.object({
   transferCode: z.string().trim().min(3).max(50),
   sourceBankId: z.number().int().positive(),

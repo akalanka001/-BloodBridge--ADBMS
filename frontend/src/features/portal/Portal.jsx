@@ -1,224 +1,56 @@
-import React, { useEffect, useState } from 'react';
-import {
-  HeartHandshake, Hospital, Droplet, LayoutDashboard,
-  LockKeyhole, ArrowRight,
-} from 'lucide-react';
-import { IconTile } from '../../components/ui/IconTile.jsx';
-import { Badge, Heading } from '../../components/ui/Typography.jsx';
+import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
-import { navigate } from '../../lib/navigation.js';
-
+import { authApi } from '../../lib/authApi.js';
+import { PORTAL_NAV, getPrimaryTab, readPortalQuery, updatePortalQuery } from '../../lib/portalNavigation.js';
+import { DashboardLayout } from '../../components/dashboard/DashboardLayout.jsx';
+import { PortalErrorBoundary } from '../../components/ui/PortalErrorBoundary.jsx';
 import { DonorPortal } from '../donor/DonorPortal.jsx';
-import { IntakePortal } from '../intake/IntakePortal.jsx';
-import { TransfersPortal } from '../transfers/TransfersPortal.jsx';
 import { AdminPortal } from '../admin/AdminPortal.jsx';
 import { HospitalPortal } from '../hospital/HospitalPortal.jsx';
+import { BankPortal } from '../bank/BankPortal.jsx';
 
-export function Portal({ type, session, token }) {
+function StaffAccount({ token, user }) {
+  const [memberships, setMemberships] = useState([]);
+  const [error, setError] = useState('');
+  useEffect(() => { authApi.getMemberships(token).then(result => setMemberships(result.memberships || result.data?.memberships || [])).catch(e => setError(e.message)); }, [token]);
+  return <section className="bb-account-section"><h1>My Account</h1><p>Your signed-in profile and institution assignments.</p><dl className="bb-definition"><dt>Name</dt><dd>{user.fullName || user.full_name}</dd><dt>Email</dt><dd>{user.email}</dd><dt>Role</dt><dd>{PORTAL_NAV[user.role]?.title}</dd></dl><h2>Institution assignments</h2>{error ? <p className="notice error" role="alert">{error}</p> : memberships.length ? <ul>{memberships.map(m => <li key={m.id}>{m.blood_bank_name || m.hospital_name}</li>)}</ul> : <p>{user.role === 'ADMIN' ? 'Administrative access is managed by your role.' : 'No active assignments.'}</p>}</section>;
+}
+
+export function Portal({ type, session, token, onLogout = () => {} }) {
+  const role = session?.user?.role;
+  const authorized = PORTAL_NAV[role]?.page === type;
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState('');
-  const [inventoryStock, setInventoryStock] = useState([]);
-  const [bankTab, setBankTab] = useState('intake'); // 'intake' | 'transfers' | 'inventory'
-
-  const defs = {
-    donor: {
-      label: 'Donor Portal',
-      title: 'Your donation journey',
-      icon: HeartHandshake,
-      description: 'A calm mobile-first space to manage your availability and discover approved camps.',
-      metrics: [
-        ['My availability', 'Contact preference'],
-        ['Donation history', 'Verified records'],
-        ['Donation camps', 'Nearby opportunities'],
-      ],
-    },
-    hospital: {
-      label: 'Hospital Portal',
-      title: 'Coordinated emergency requests',
-      icon: Hospital,
-      description: 'Create component-specific requests, find released inventory and track fulfillment.',
-      metrics: [
-        ['Blood requests', 'Submitted by staff'],
-        ['Matching', 'Potential candidates'],
-        ['Fulfillment', 'Verified handover'],
-      ],
-    },
-    bank: {
-      label: 'Blood Bank Portal',
-      title: 'Manage your blood bank',
-      icon: Droplet,
-      description: 'Track individual component units, approve donation camps and handle reservations.',
-      metrics: [
-        ['Inventory', 'Release status'],
-        ['Requests', 'Pending allocation'],
-        ['Camp approvals', 'Coordinating bank'],
-      ],
-    },
-    admin: {
-      label: 'Admin Portal',
-      title: 'Operational insights',
-      icon: LayoutDashboard,
-      description: 'Manage institutional access and analyze database performance and warehouse trends.',
-      metrics: [
-        ['User management', 'Role and organization'],
-        ['Analytics', 'Warehouse summaries'],
-        ['Database lab', 'EXPLAIN / indexes'],
-      ],
-    },
-  };
-
-  const d = defs[type];
-  const authorized =
-    session?.user?.role ===
-    { donor: 'DONOR', hospital: 'HOSPITAL_STAFF', bank: 'BANK_STAFF', admin: 'ADMIN' }[type];
-
+  const [activeNavTab, setTab] = useState(() => readPortalQuery().get('tab') || 'overview');
   useEffect(() => {
-    if (!token || !authorized) return;
-
-    if (type === 'donor') {
-      api('/donors/me', {}, token)
-        .then((r) => setProfile(r.data))
-        .catch((e) => setError(e.message));
-    }
-
-    if (type === 'bank') {
-      api('/inventory/summary', {}, token)
-        .then((r) => setInventoryStock(r.data || []))
-        .catch((e) => setError(e.message));
-    }
+    const sync = () => setTab(readPortalQuery().get('tab') || 'overview');
+    sync(); window.addEventListener('hashchange', sync); window.addEventListener('popstate', sync);
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
+  }, [type]);
+  const setActiveNavTab = useCallback(tab => {
+    const current = readPortalQuery().get('tab') || 'overview';
+    const changed = getPrimaryTab(role, current) !== getPrimaryTab(role, tab);
+    const nestedKeys = ['section', 'record', 'page', 'h_view', 'h_list', 'h_candidates', 'h_request', 'campId', 'campSection', 'campSearch', 'campProvince', 'campDistrict', 'campDs', 'campGn', 'campSort', 'campPage', 'campSize'];
+    const clearNested = changed ? Object.fromEntries(nestedKeys.map(key => [key, null])) : {};
+    updatePortalQuery({ ...clearNested, tab: tab === 'overview' ? null : tab });
+    setTab(tab);
+  }, [role]);
+  useEffect(() => {
+    if (type !== 'donor' || !token || !authorized) return;
+    let cancelled = false;
+    api('/donors/me', {}, token).then(result => { if (!cancelled) { setProfile(result.data); setError(''); } }).catch(e => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
   }, [type, token, authorized]);
 
-  return (
-    <div className="view-section portal">
-      <Heading tag={d.label} title={d.title} description={d.description} />
-      {!authorized && (
-        <div className="notice">
-          <LockKeyhole size={18} />
-          <span>
-            This is the {d.label.toLowerCase()} design layout. Sign in with the appropriate role to
-            access private data; no sample clinical or operational figures are presented.
-          </span>
-          <button className="text-link" onClick={() => navigate('login')}>
-            Sign in <ArrowRight size={15} />
-          </button>
-        </div>
-      )}
-      <div className="portal-heading">
-        <IconTile Icon={d.icon} />
-        <div>
-          <strong>
-            {authorized
-              ? `Welcome, ${session.user.fullName || session.user.full_name || 'user'}`
-              : 'Dashboard preview'}
-          </strong>
-          <p>Shared components · role-based authorization · responsive cards</p>
-        </div>
-      </div>
-      <div className="three-grid">
-        {d.metrics.map(([heading, desc]) => (
-          <div className="surface-card stat-card" key={heading}>
-            <span className="small-label">{heading}</span>
-            <h3>—</h3>
-            <p>{desc}</p>
-          </div>
-        ))}
-      </div>
-
-      {error && <div className="notice error">{error}</div>}
-
-      {/* DONOR DOMAIN MODULE */}
-      {type === 'donor' && authorized && (
-        <DonorPortal
-          profile={profile}
-          token={token}
-          onProfileUpdate={(updated) => setProfile(updated)}
-        />
-      )}
-
-      {/* HOSPITAL DOMAIN MODULE */}
-      {type === 'hospital' && authorized && (
-        <HospitalPortal
-          token={token}
-          userHospitalId={session.user.hospitalId || 1}
-        />
-      )}
-
-      {/* BLOOD BANK DOMAIN MODULE */}
-      {type === 'bank' && authorized && (
-        <div className="bank-portal-container" style={{ marginTop: '1.5rem' }}>
-          <div className="bank-section-tabs" style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
-            <button
-              id="bank-tab-intake"
-              className={bankTab === 'intake' ? 'primary' : 'outline'}
-              onClick={() => setBankTab('intake')}
-            >
-              Donor Intake & Collections
-            </button>
-            <button
-              id="bank-tab-transfers"
-              className={bankTab === 'transfers' ? 'primary' : 'outline'}
-              onClick={() => setBankTab('transfers')}
-            >
-              Inter-Bank Transfers
-            </button>
-            <button
-              id="bank-tab-inventory"
-              className={bankTab === 'inventory' ? 'primary' : 'outline'}
-              onClick={() => setBankTab('inventory')}
-            >
-              Released Blood Stock
-            </button>
-          </div>
-
-          {bankTab === 'intake' && (
-            <IntakePortal token={token} userBankId={session.user.bloodBankId || 1} />
-          )}
-
-          {bankTab === 'transfers' && (
-            <TransfersPortal token={token} userBankId={session.user.bloodBankId || 1} />
-          )}
-
-          {bankTab === 'inventory' && (
-            <div className="surface-card">
-              <h3>Current Released Component Stock</h3>
-              <p>Live inventory queried directly from PostgreSQL view <code>v_available_blood_stock</code>.</p>
-              {inventoryStock.length > 0 ? (
-                <div className="three-grid">
-                  {inventoryStock.slice(0, 6).map((item, idx) => (
-                    <div key={idx} className="surface-card stat-card">
-                      <span className="small-label">{item.blood_type_code} {item.component_code}</span>
-                      <h3>{item.available_units} Units</h3>
-                      <p>{item.blood_bank_name}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p>No available released units found in the local database.</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ADMINISTRATOR DOMAIN MODULE */}
-      {type === 'admin' && authorized && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <AdminPortal token={token} />
-        </div>
-      )}
-
-      <div className="surface-card info-card" style={{ marginTop: '1.5rem' }}>
-        <h3>Academic Demonstration Architecture</h3>
-        <p>
-          Connected to Express modular routes, PostgreSQL 16 advanced procedures, triggers, views,
-          and Socket.io event channels. Real operational workflows with no hardcoded mock numbers.
-        </p>
-        <div className="chip-row">
-          <Badge>Desktop: sidebar/table views</Badge>
-          <Badge>Mobile: stacked cards</Badge>
-          <Badge>Keyboard-accessible forms</Badge>
-        </div>
-      </div>
-    </div>
-  );
+  return <DashboardLayout role={role || 'DONOR'} user={session?.user} activeTab={activeNavTab} onTabChange={setActiveNavTab} onLogout={onLogout}>
+    {!authorized ? <section className="bb-empty" role="alert"><h1>Access restricted</h1><p>This portal requires its assigned account role.</p></section> : <PortalErrorBoundary resetKey={`${type}:${activeNavTab}`}>
+      {error && <p className="notice error" role="alert">Could not load your profile: {error}</p>}
+      {activeNavTab === 'account' && type !== 'donor' ? <StaffAccount token={token} user={session.user} /> : <>
+        {type === 'donor' && <DonorPortal profile={profile} token={token} activeTab={activeNavTab} onTabChange={setActiveNavTab} onProfileUpdate={setProfile} />}
+        {type === 'hospital' && <HospitalPortal token={token} activeTab={activeNavTab} onTabChange={setActiveNavTab} userHospitalId={session?.user?.hospitalId || null} />}
+        {type === 'bank' && <BankPortal token={token} session={session} activeTab={activeNavTab} onTabChange={setActiveNavTab} />}
+        {type === 'admin' && <AdminPortal token={token} activeTab={activeNavTab} onTabChange={setActiveNavTab} />}
+      </>}
+    </PortalErrorBoundary>}
+  </DashboardLayout>;
 }

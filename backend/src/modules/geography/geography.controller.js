@@ -26,8 +26,8 @@ export class GeographyController {
       if (!req.query.districtCode) {
         return res.status(400).json({ error: 'districtCode is required' });
       }
-      const { districtCode } = dsQuerySchema.parse(req.query);
-      const data = await geographyService.getDsDivisions(districtCode);
+      const { districtCode, provinceCode } = dsQuerySchema.parse(req.query);
+      const data = await geographyService.getDsDivisions(districtCode, provinceCode);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -36,8 +36,8 @@ export class GeographyController {
 
   async getGnDivisions(req, res, next) {
     try {
-      const { dsCode } = gnQuerySchema.parse(req.query);
-      const data = await geographyService.getGnDivisions(dsCode);
+      const { dsCode, districtCode } = gnQuerySchema.parse(req.query);
+      const data = await geographyService.getGnDivisions(dsCode, districtCode);
       res.json({ data });
     } catch (err) {
       next(err);
