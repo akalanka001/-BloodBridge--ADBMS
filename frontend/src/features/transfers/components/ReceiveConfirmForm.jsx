@@ -9,6 +9,10 @@ export function ReceiveConfirmForm({
   const [transferId, setTransferId] = useState(initialTransferId);
   const [notes, setNotes] = useState('Received in good condition, cold chain verified');
 
+  React.useEffect(() => {
+    if (initialTransferId) setTransferId(initialTransferId);
+  }, [initialTransferId]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!transferId.trim()) return;
@@ -26,11 +30,11 @@ export function ReceiveConfirmForm({
 
       <form id="form-transfer-receive" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label htmlFor="receive-transfer-id" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#4B5563' }}>
-          Transfer UUID *
+          Transfer Code or UUID *
           <input
             id="receive-transfer-id"
             required
-            placeholder="UUID of in-transit transfer"
+            placeholder="e.g. TRF-987381 or UUID"
             value={transferId}
             onChange={(e) => setTransferId(e.target.value)}
             style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #D1D5DB', fontSize: 13, marginTop: 4 }}

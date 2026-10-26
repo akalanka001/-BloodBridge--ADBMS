@@ -8,6 +8,10 @@ export function DispatchConfirmForm({
 }) {
   const [transferId, setTransferId] = useState(initialTransferId);
 
+  React.useEffect(() => {
+    if (initialTransferId) setTransferId(initialTransferId);
+  }, [initialTransferId]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!transferId.trim()) return;
@@ -25,11 +29,11 @@ export function DispatchConfirmForm({
 
       <form id="form-transfer-dispatch" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label htmlFor="dispatch-transfer-id" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#4B5563' }}>
-          Transfer UUID *
+          Transfer Code or UUID *
           <input
             id="dispatch-transfer-id"
             required
-            placeholder="UUID of requested transfer"
+            placeholder="e.g. TRF-987381 or UUID"
             value={transferId}
             onChange={(e) => setTransferId(e.target.value)}
             style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #D1D5DB', fontSize: 13, marginTop: 4 }}

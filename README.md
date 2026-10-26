@@ -62,10 +62,11 @@ BloodBridge_Starter/
 ├── database/                 # All PostgreSQL changes go here (not in frontend!)
 │   ├── init/00-bootstrap.sh   # Fresh Docker volume initializes both databases
 │   ├── migrations/
-│   │   ├── 001_schema.sql
-│   │   ├── 002_seed_reference.sql
-│   │   ├── 007_advanced_objects.sql
+│   │   ├── 001_table_creation.sql
+│   │   ├── 002_advanced_database_concepts.sql
+│   │   ├── 003_insert_data.sql
 │   │   └── 009_verify_advanced_objects.sql
+│   ├── migrations_archive/   # Preserved legacy incremental migration history
 │   ├── warehouse/004_warehouse.sql
 │   └── experiments/          # Benchmarks; never run as startup migrations
 │
