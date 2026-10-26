@@ -59,7 +59,11 @@ export class TransfersRepository {
     return { data: rows, pagination: { limit, offset, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getTransferById(transferId) {
+  async getTransferById(transferIdOrCode) {
+    if (!transferIdOrCode) return null;
+    const trimmed = String(transferIdOrCode).trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+
     const { rows } = await pool.query(
       `SELECT t.*,
               sb.name AS source_bank_name,
@@ -73,8 +77,8 @@ export class TransfersRepository {
        LEFT JOIN users u_req ON u_req.id = t.requested_by
        LEFT JOIN users u_disp ON u_disp.id = t.dispatched_by
        LEFT JOIN users u_rec ON u_rec.id = t.received_by
-       WHERE t.id = $1`,
-      [transferId],
+       WHERE ${isUuid ? 't.id = $1' : 't.transfer_code = $1'}`,
+      [trimmed],
     );
 
     if (!rows.length) return null;
@@ -86,29 +90,43 @@ export class TransfersRepository {
        FROM transfer_units tu
        JOIN blood_units bu ON bu.id = tu.blood_unit_id
        WHERE tu.transfer_id = $1`,
-      [transferId],
+      [transfer.id],
     );
     transfer.units = unitRows.rows;
     return transfer;
   }
 
-  async dispatchTransfer(transferId, actorId) {
+  async dispatchTransfer(transferIdOrCode, actorId) {
+    let resolvedId = transferIdOrCode;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(transferIdOrCode).trim());
+    if (!isUuid) {
+      const { rows } = await pool.query('SELECT id FROM blood_bank_transfers WHERE transfer_code = $1', [String(transferIdOrCode).trim()]);
+      if (!rows.length) return null;
+      resolvedId = rows[0].id;
+    }
     return inTransaction(async (client) => {
-      await client.query('CALL sp_dispatch_blood_transfer($1, $2)', [transferId, actorId]);
+      await client.query('CALL sp_dispatch_blood_transfer($1, $2)', [resolvedId, actorId]);
       const { rows } = await client.query(
         'SELECT * FROM blood_bank_transfers WHERE id = $1',
-        [transferId],
+        [resolvedId],
       );
       return rows[0];
     });
   }
 
-  async receiveTransfer(transferId, actorId, notes = null) {
+  async receiveTransfer(transferIdOrCode, actorId, notes = null) {
+    let resolvedId = transferIdOrCode;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(transferIdOrCode).trim());
+    if (!isUuid) {
+      const { rows } = await pool.query('SELECT id FROM blood_bank_transfers WHERE transfer_code = $1', [String(transferIdOrCode).trim()]);
+      if (!rows.length) return null;
+      resolvedId = rows[0].id;
+    }
     return inTransaction(async (client) => {
-      await client.query('CALL sp_receive_blood_transfer($1, $2, $3)', [transferId, actorId, notes]);
+      await client.query('CALL sp_receive_blood_transfer($1, $2, $3)', [resolvedId, actorId, notes]);
       const { rows } = await client.query(
         'SELECT * FROM blood_bank_transfers WHERE id = $1',
-        [transferId],
+        [resolvedId],
       );
       return rows[0];
     });

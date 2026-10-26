@@ -11,7 +11,12 @@ describe('Pending migration 021 camp approval authorization (rolled back)', () =
     const before = (await client.query(definitionQuery)).rows[0].definition;
     try {
       await client.query('BEGIN');
-      const migration = await readFile(new URL('../../database/migrations/021_camp_approval_authorization.sql', import.meta.url), 'utf8');
+      let migration;
+      try {
+        migration = await readFile(new URL('../../database/migrations/021_camp_approval_authorization.sql', import.meta.url), 'utf8');
+      } catch {
+        migration = await readFile(new URL('../../database/migrations_archive/021_camp_approval_authorization.sql', import.meta.url), 'utf8');
+      }
       await client.query(migration.replace(/^\s*(?:BEGIN|COMMIT);\s*$/gm, ''));
       const tag = `approval-proof-${randomUUID()}`;
       const district = (await client.query('SELECT code FROM districts ORDER BY code LIMIT 1')).rows[0].code;

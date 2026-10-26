@@ -87,6 +87,9 @@ app.use((err, _req, res, _next) => {
   if (['23503', '23514', '22007', '22P02'].includes(err.code)) {
     return res.status(400).json({ error: 'Invalid or conflicting data/state' });
   }
+  if (err.code === 'P0001') {
+    return res.status(400).json({ error: err.message });
+  }
   if (err.code === '42501') return res.status(403).json({ error: 'Permission denied' });
   console.error('API failure:', err);
   res.status(500).json({ error: 'Internal server error' });

@@ -62,7 +62,7 @@ export class TransfersService {
       throw new NotFoundError('Inter-bank transfer not found');
     }
     await this.assertBankStaff(user, transfer.source_bank_id);
-    return transfersRepository.dispatchTransfer(transferId, user.id);
+    return transfersRepository.dispatchTransfer(transfer.id, user.id);
   }
 
   async receiveTransfer(transferId, user, notes) {
@@ -71,7 +71,7 @@ export class TransfersService {
       throw new NotFoundError('Inter-bank transfer not found');
     }
     await this.assertBankStaff(user, transfer.target_bank_id);
-    return transfersRepository.receiveTransfer(transferId, user.id, notes);
+    return transfersRepository.receiveTransfer(transfer.id, user.id, notes);
   }
 }
 

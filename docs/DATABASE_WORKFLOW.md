@@ -2,12 +2,13 @@
 
 ## SQL installation order
 
-1. `001_schema.sql`: relational tables, PK/FK, CHECK, composite and partial indexes.
-2. `002_seed_reference.sql`: local development geography + blood types; codes are **not official identifiers**.
-3. `007_advanced_objects.sql`: 4 regular views, 5 functions (including 2 trigger functions), 1 stored procedure, 2 triggers, 1 materialized view.
+1. `001_table_creation.sql`: Complete relational DDL (49 tables, PK/FK constraints, CHECK constraints, composite and partial indexes, runtime privileges).
+2. `002_advanced_database_concepts.sql`: Advanced PostgreSQL objects (18 views, 1 materialized view, 7 functions, 5 triggers, 15 stored procedures) with detailed inline documentation indicating where each concept connects to backend routes and frontend UI components.
+3. `003_insert_data.sql`: Comprehensive master reference data (9 provinces, 25 districts, DS & GN divisions, clinical blood/component types, locations, clusters, hospitals, blood banks, camp organizers, and demo accounts).
 4. Separate warehouse: `004_warehouse.sql` in database `bloodbridge_warehouse`.
 5. `009_verify_advanced_objects.sql`: PostgreSQL catalog inspection on demand, **not** an automatic migration.
-6. `experiments/003_benchmarks.sql`, `experiments/008_advanced_experiments.sql`: run in test/scratch environments and capture measured results; these are **not** application startup scripts.
+6. Legacy incremental migrations (001 through 021) are safely preserved in `database/migrations_archive/`.
+7. `experiments/003_benchmarks.sql`, `experiments/008_advanced_experiments.sql`: run in test/scratch environments and capture measured results; these are **not** application startup scripts.
 
 ## Concepts that must appear in your final demonstration
 

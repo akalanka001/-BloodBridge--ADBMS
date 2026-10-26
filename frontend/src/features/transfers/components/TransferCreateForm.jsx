@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Truck, Send, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { api } from '../../../lib/api.js';
 
 export function TransferCreateForm({
   userBankId,
@@ -7,11 +8,28 @@ export function TransferCreateForm({
   onSubmit = () => {},
   loading = false,
 }) {
-  const [targetBankId, setTargetBankId] = useState('2');
+  const [banks, setBanks] = useState([]);
+  const [targetBankId, setTargetBankId] = useState('');
   const [transferCode, setTransferCode] = useState(`TRF-${Date.now().toString().slice(-6)}`);
   const [selectedUnitIds, setSelectedUnitIds] = useState([]);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    api('/blood-banks')
+      .then((res) => {
+        if (!active) return;
+        const list = Array.isArray(res) ? res : (res.data || []);
+        const filtered = list.filter((b) => String(b.id) !== String(userBankId));
+        setBanks(filtered);
+        if (filtered.length > 0) {
+          setTargetBankId((prev) => prev && filtered.some(b => String(b.id) === String(prev)) ? prev : String(filtered[0].id));
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [userBankId]);
 
   // Eligible units for transfer: must be RELEASED and IN_STOCK
   const eligibleUnits = availableUnits.filter(
@@ -92,9 +110,15 @@ export function TransferCreateForm({
               onChange={(e) => setTargetBankId(e.target.value)}
               style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #D1D5DB', fontSize: 13 }}
             >
-              <option value="1">National Blood Transfusion Center (Colombo)</option>
-              <option value="2">Kandy General Hospital Blood Bank</option>
-              <option value="3">Karapitiya Base Hospital Blood Bank (Galle)</option>
+              {banks.length === 0 ? (
+                <option value="">No other blood banks available</option>
+              ) : (
+                banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.district_name || b.district_code || 'Sri Lanka'})
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>

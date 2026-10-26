@@ -15,13 +15,14 @@ export function TransfersPortal({ token, userBankId, pageSize = 10 }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedTransferId, setSelectedTransferId] = useState('');
 
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
       const [trfRes, unitsRes] = await Promise.all([
-        api(`/transfers?bankId=${userBankId}&limit=${pageSize}&offset=${(page - 1) * pageSize}`, {}, token),
+        api(userBankId ? `/transfers?bankId=${userBankId}&limit=${pageSize}&offset=${(page - 1) * pageSize}` : `/transfers?limit=${pageSize}&offset=${(page - 1) * pageSize}`, {}, token),
         api(`/inventory/units?bankId=${userBankId}&inventoryStatus=IN_STOCK&releaseStatus=RELEASED&limit=100`, {}, token).catch(() => ({ data: [] })),
       ]);
       setTransfers(trfRes.data || []);
@@ -63,7 +64,7 @@ export function TransfersPortal({ token, userBankId, pageSize = 10 }) {
     setError('');
     setSuccess('');
     try {
-      await api(`/transfers/${transferId}/dispatch`, {
+      await api(`/transfers/${encodeURIComponent(transferId)}/dispatch`, {
         method: 'POST',
       }, token);
       setSuccess(`Transfer ${transferId} dispatched into transit! Units locked in IN_TRANSIT.`);
@@ -77,7 +78,7 @@ export function TransfersPortal({ token, userBankId, pageSize = 10 }) {
     setError('');
     setSuccess('');
     try {
-      await api(`/transfers/${transferId}/receive`, {
+      await api(`/transfers/${encodeURIComponent(transferId)}/receive`, {
         method: 'POST',
         body: JSON.stringify({ notes }),
       }, token);
@@ -177,8 +178,8 @@ export function TransfersPortal({ token, userBankId, pageSize = 10 }) {
 
       {/* Dispatch and Receive Operational Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-        <DispatchConfirmForm onDispatch={handleDispatch} loading={loading} />
-        <ReceiveConfirmForm onReceive={handleReceive} loading={loading} />
+        <DispatchConfirmForm initialTransferId={selectedTransferId} onDispatch={handleDispatch} loading={loading} />
+        <ReceiveConfirmForm initialTransferId={selectedTransferId} onReceive={handleReceive} loading={loading} />
       </div>
 
       {/* Transfers List Table */}
@@ -199,22 +200,40 @@ export function TransfersPortal({ token, userBankId, pageSize = 10 }) {
                 <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>UNITS</th>
                 <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>STATUS</th>
                 <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>CREATED AT</th>
+                <th style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#7A8B9E' }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {transfers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '36px 14px', color: '#7A8B9E', fontSize: 13 }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '36px 14px', color: '#7A8B9E', fontSize: 13 }}>
                     No inter-bank transfer requests recorded yet.
                   </td>
                 </tr>
               ) : (
                 transfers.map((trf) => {
                   const badge = getStatusBadge(trf.status);
+                  const displayCode = trf.transfer_code || `#${trf.id.slice(0, 8)}`;
                   return (
                     <tr key={trf.id} style={{ borderBottom: '1px solid #E8ECF2' }}>
                       <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: '#1D3043' }}>
-                        {trf.transfer_code || `#${trf.id.slice(0, 8)}`}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTransferId(displayCode)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            fontWeight: 700,
+                            color: '#1D4ED8',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                          title="Click to copy to form"
+                        >
+                          {displayCode}
+                        </button>
                       </td>
                       <td style={{ padding: '12px 14px', fontSize: 13, color: '#1D3043' }}>
                         {trf.source_bank_name || 'Source Bank'}
@@ -242,6 +261,66 @@ export function TransfersPortal({ token, userBankId, pageSize = 10 }) {
                       </td>
                       <td style={{ padding: '12px 14px', fontSize: 12, color: '#7A8B9E' }}>
                         {new Date(trf.created_at).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                        {trf.status === 'REQUESTED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDispatch(trf.transfer_code || trf.id)}
+                            disabled={loading}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: 6,
+                              border: 'none',
+                              background: '#1D4ED8',
+                              color: '#FFFFFF',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: loading ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                            title="Dispatch transfer into transit"
+                          >
+                            <Send size={13} /> Dispatch
+                          </button>
+                        )}
+                        {trf.status === 'IN_TRANSIT' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTransferId(trf.transfer_code || trf.id);
+                              const notes = window.prompt(
+                                'Enter condition and cold-chain reception notes:',
+                                'Received in good condition, cold chain verified'
+                              );
+                              if (notes !== null) {
+                                handleReceive(trf.transfer_code || trf.id, notes || 'Received in good condition, cold chain verified');
+                              }
+                            }}
+                            disabled={loading}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: 6,
+                              border: 'none',
+                              background: '#16A085',
+                              color: '#FFFFFF',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: loading ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                            title="Receive transfer into destination inventory"
+                          >
+                            <CheckCircle2 size={13} /> Receive
+                          </button>
+                        )}
+                        {['RECEIVED', 'CANCELLED'].includes(trf.status) && (
+                          <span style={{ fontSize: 12, color: '#9CA3AF' }}>Completed</span>
+                        )}
                       </td>
                     </tr>
                   );
